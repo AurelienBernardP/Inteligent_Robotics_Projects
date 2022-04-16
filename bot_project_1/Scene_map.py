@@ -134,7 +134,10 @@ def line_generation(x0,y0,x1, y1):
     """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
     Input coordinates should be integers.
     The result will contain both the start and the end point.
+
+    Credit : function code inspired by https://github.com/encukou/bresenham/blob/master/bresenham.py
     """
+
     dx = x1 - x0
     dy = y1 - y0
 
