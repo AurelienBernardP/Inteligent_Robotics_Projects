@@ -6,6 +6,7 @@ Distributed under the GNU General Public License.
 (See http://www.gnu.org/copyleft/gpl.html)
 """
 # VREP
+from multiprocessing.connection import wait
 import sim as vrep
 
 # Useful import
@@ -108,7 +109,7 @@ rightVel = 0  # Go sideways.
 rotateRightVel = 0  # Rotate.
 
 # First state of state machine
-fsm = 'planning'
+fsm = 'rotate'
 print('Switching to state: ', fsm)
 
 # Get the initial position
@@ -125,13 +126,17 @@ for i in range(int(1./timestep)):
 
 house_map = Scene_map(150,150)
 
-actions = [('Est', 5), ('Nord', 4), ('West', 2), ('Idle', 0)]
-currActionIndex = -1
+# Actions that will come from A* algo.
+actions = [('Est', 4), ('Nord', 4), ('West', 2)]
+currActionIndex = 0
+
+# To track position at the beginning of a move.
 youbotFirstPos = youbotPos
 
-def f(x):
+# Define a function to get the angle corresponding to each move.
+def getAngle(x):
     return {
-            'Nord': np.pi,
+            'Nord': -np.pi,
             'Sud': 0,
             'Est': np.pi/2,
             'West': -np.pi/2,
@@ -163,38 +168,96 @@ while True:
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
        
-        house_map.update_contact_map_from_sensor(scanned_points,contacts)
-
-        house_map.show_map_state()
         
+        # is it to slow ? dont work with my part.
+        #start = time.time()
+        #house_map.update_contact_map_from_sensor(scanned_points,contacts)
+        #house_map.show_map_state()
+        #end = time.time()
+        #total_time = end - start
+        #print("\n"+ str(total_time))
+       
+     
 
-        fsm == 'rotateRight'
         # Apply the state machine.
         if fsm == 'planning':
-            currActionIndex = currActionIndex + 1
-            fsm = 'rotate'
+            # to implement if needed ?
             print('Switching to state: ', fsm)
+
+        
+        elif fsm == 'rotate':
+            # Compute the value of the left and right angles.
+            angle1 = youbotEuler[2]
+            angle2 = getAngle(actions[currActionIndex][0])
+            if (angle1 >= angle2):
+                angleRight = 2 * np.pi - (np.pi - angle1) - (np.pi + angle2)
+            else:
+                angleRight = (np.pi - angle2) + (np.pi + angle1)
+            angleLeft = 2 * np.pi - angleRight
+            
+            # Rotate left or right (choose the best of the two move).
+            if (angleRight <= angleLeft):
+                distanceToGoal = angleRight
+                rotateRightVel = - 1/2 * distanceToGoal
+            else:
+                distanceToGoal = angleLeft
+                rotateRightVel = 1/2 * distanceToGoal
+            
+            # Stop when the robot reached the goal angle.
+            if distanceToGoal < .01:
+                rotateRightVel = 0
+                fsm = 'moveFoward'
+                print('Switching to state: ', fsm)
+
+        
+        elif fsm == 'moveFoward':
+            
+            # Compute the distance already travelled for this move.
+            distance = abs(youbotPos[0] - youbotFirstPos[0]) + abs(youbotPos[1] - youbotFirstPos[1])
+
+            # Compute the distance that remain to travel.
+            distanceToGoal = actions[currActionIndex][1] - distance
+
+            # Set the speed to reach the goal.
+            forwBackVel = - 1 * distanceToGoal
+            
+            # Stop when the robot reached the goal position.
+            if abs(distanceToGoal) < .01:
+                forwBackVel = 0  # Stop the robot.
+
+                # Perform the next action or do noting if no action remain.
+                currActionIndex = currActionIndex + 1
+                if (currActionIndex < len(actions)):
+                    youbotFirstPos = youbotPos
+                    fsm = 'rotate'
+                    print('Switching to state: ', fsm)
+                else:
+                    fsm = 'idle'
+                    print('Switching to state: ', fsm)
+        
 
         elif fsm == 'idle':
             print("wait")
-        
-        elif fsm == 'rotate':
-            print(youbotEuler[2])
-            angle = f(actions[currActionIndex][0])
-            rotateVel = angdiff(youbotEuler[2], (angle))
-
-            if abs(angdiff(youbotEuler[2], (angle))) < .002:
-                rotateVel = 0
-                fsm = 'planning'
-                print('Switching to state: ', fsm)
 
 
+        elif fsm == 'finished':
+            print('Finish')
+            time.sleep(3)
+            break
+
+
+        else:
+            sys.exit('Unknown state ' + fsm)
+
+            
             
 
 
 
 
-            
+
+        '''
+        # To remove -----------------------------
         elif fsm == 'forward':
 
             # Make the robot drive with a constant speed (very simple controller, likely to overshoot). 
@@ -248,13 +311,7 @@ while True:
                 rotateRightVel = 0
                 fsm = 'finished'
                 print('Switching to state: ', fsm)
-
-        elif fsm == 'finished':
-            print('Finish')
-            time.sleep(3)
-            break
-        else:
-            sys.exit('Unknown state ' + fsm)
+        '''
 
         # Update wheel velocities.
         h = youbot_drive(vrep, h, forwBackVel, rightVel, rotateRightVel)
