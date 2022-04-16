@@ -6,6 +6,7 @@ Distributed under the GNU General Public License.
 (See http://www.gnu.org/copyleft/gpl.html)
 """
 # VREP
+
 import sim as vrep
 
 # Useful import
@@ -126,7 +127,6 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Start the demo. 
-counter = 0
 while True:
     try:
 
@@ -136,21 +136,13 @@ while True:
         if vrep.simxGetConnectionId(clientID) == -1:
             sys.exit('Lost connection to remote API.')
 
-        counter +=1
-
         # Get the position and the orientation of the robot.
         res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True) # Check the return value from the previous V-REP call (res) and exit in case of error.
         res, youbotEuler = vrep.simxGetObjectOrientation(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True)
 
-
-        house_map.update_bot_pos((youbotPos[0],youbotPos[1]))
-        #print("bot position : " + str((youbotPos[0],youbotPos[1])))
-
-        
-        
-
+        house_map.update_bot_pos((youbotPos[0],youbotPos[1]),youbotEuler[2])
 
         # Get the distance from the beacons
         # Change the flag to True to constraint the range of the beacons
@@ -161,8 +153,11 @@ while True:
         vrchk(vrep, res)
        
         house_map.update_contact_map_from_sensor(scanned_points,contacts)
+
         house_map.show_map_state()
         
+
+        fsm == 'rotateRight'
         # Apply the state machine.
         if fsm == 'forward':
 
