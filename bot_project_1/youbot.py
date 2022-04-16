@@ -6,6 +6,8 @@ Distributed under the GNU General Public License.
 (See http://www.gnu.org/copyleft/gpl.html)
 """
 # VREP
+from nis import match
+import swift
 import sim as vrep
 
 # Useful import
@@ -108,7 +110,7 @@ rightVel = 0  # Go sideways.
 rotateRightVel = 0  # Rotate.
 
 # First state of state machine
-fsm = 'forward'
+fsm = 'planning'
 print('Switching to state: ', fsm)
 
 # Get the initial position
@@ -124,6 +126,18 @@ for i in range(int(1./timestep)):
 
 
 house_map = Scene_map(150,150)
+
+actions = [('Est', 5), ('Nord', 4), ('West', 2), ('Idle', 0)]
+currActionIndex = -1
+youbotFirstPos = youbotPos
+
+def f(x):
+    return {
+            'Nord': np.pi,
+            'Sud': 0,
+            'Est': np.pi/2,
+            'West': -np.pi/2,
+     }[x]
 
 # Start the demo. 
 counter = 0
@@ -148,10 +162,6 @@ while True:
         house_map.update_bot_pos((youbotPos[0],youbotPos[1]))
         #print("bot position : " + str((youbotPos[0],youbotPos[1])))
 
-        
-        
-
-
         # Get the distance from the beacons
         # Change the flag to True to constraint the range of the beacons
         beacon_dist = youbot_beacon(vrep, clientID, beacons_handle, h, flag=False)
@@ -164,7 +174,32 @@ while True:
         house_map.show_map_state()
         
         # Apply the state machine.
-        if fsm == 'forward':
+        if fsm == 'planning':
+            currActionIndex = currActionIndex + 1
+            fsm = 'rotate'
+            print('Switching to state: ', fsm)
+
+        elif fsm == 'idle':
+            print("wait")
+        
+        elif fsm == 'rotate':
+            print(youbotEuler[2])
+            angle = f(actions[currActionIndex][0])
+            rotateVel = angdiff(youbotEuler[2], (angle))
+
+            if abs(angdiff(youbotEuler[2], (angle))) < .002:
+                rotateVel = 0
+                fsm = 'planning'
+                print('Switching to state: ', fsm)
+
+
+            
+
+
+
+
+            
+        elif fsm == 'forward':
 
             # Make the robot drive with a constant speed (very simple controller, likely to overshoot). 
             # The speed is - 1 m/s, the sign indicating the direction to follow. Please note that the robot has
@@ -193,6 +228,7 @@ while True:
                 forwBackVel = 0  # Stop the robot.
                 fsm = 'right'
                 print('Switching to state: ', fsm)
+
         elif fsm == 'right':
             # Move sideways, again with a proportional controller (goal: x = - 4.5). 
             rightVel = - 2 * (youbotPos[0] + 4.5)
@@ -209,7 +245,7 @@ while True:
             # and the robot will correctly find its way back (e.g.: the angular speed is positive, the robot overshoots, 
             # the anguler speed becomes negative). 
             # youbotEuler(3) is the rotation around the vertical axis.              
-            rotateRightVel = angdiff(youbotEuler[2], (-np.pi/2))
+            rotateRightVel = angdiff(youbotEuler[2], (np.pi/2))
 
             # Stop when the robot is at an angle close to -pi/2.
             if abs(angdiff(youbotEuler[2], (-np.pi/2))) < .002:

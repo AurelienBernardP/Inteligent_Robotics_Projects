@@ -52,7 +52,7 @@ class Scene_map :
         drawn_matrix = self.occupancy_matrix = np.zeros((np.shape(self.occupancy_matrix)[0], np.shape(self.occupancy_matrix)[1]))
         drawn_matrix[map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])] = 3
 
-        print(np.shape(self.ray_endings))
+        #print(np.shape(self.ray_endings))
         for i in range(np.shape(self.ray_endings)[1]):
             drawn_matrix[map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])] = 4
 
