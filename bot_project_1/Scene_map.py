@@ -40,6 +40,17 @@ class Scene_map :
         self.bot_pos[1] = new_pos[1]
         self.bot_orientation = new_orientation
 
+    def is_frontier(self,x,y):
+
+        for i in range(x-1,x+2,1):
+            for j in range(y-1,y+2,1):
+                if(i< 0 or j<0 or i > np.shape(self.occupancy_matrix)[0] or i > np.shape(self.occupancy_matrix)[1]):
+                    continue
+                
+                if(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
+                    return True
+
+        return False
 
     def update_contact_map_from_sensor(self,points,occupancy):
 
@@ -67,15 +78,16 @@ class Scene_map :
             if(self.ray_hit[i]):
                 self.occupancy_matrix[ray_x,ray_y] = Scene_map.OBSTACLE
             
-            elif(self.occupancy_matrix[ray_x,ray_y] == Scene_map.UNEXPLORED):
-                    self.occupancy_matrix[ray_x,ray_y] = Scene_map.FRONTIER
 
             #update the state of all cells before the end of the ray
             ray_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
 
-            for j in range(len(ray_cells)-1):
+            for j in range(len(ray_cells)):
                 if(self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] != Scene_map.OBSTACLE):
-                    self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] = Scene_map.FREE
+                    if(self.is_frontier(ray_cells[j][0],ray_cells[j][1])):
+                        self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] = Scene_map.FRONTIER
+                    else:
+                        self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] = Scene_map.FREE
                 else:
                     break
             
