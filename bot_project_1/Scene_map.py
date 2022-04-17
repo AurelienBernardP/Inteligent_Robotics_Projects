@@ -1,7 +1,7 @@
 from cmath import tanh
 import numpy as np
 import matplotlib.pyplot as plt
-
+import pygame
 
 class Scene_map :
 
@@ -20,18 +20,24 @@ class Scene_map :
                     [255,   0, 255]])  # frontier - pink
 
     def __init__(self, width, height):
-        self.map_size = (width,height)
 
+        self.map_size = (width,height)
         self.occupancy_matrix = np.zeros((height, width), dtype=int)
+        self.real_room_size = (15,15) # in meters
         
         self.bot_pos = np.zeros(2) #(x,y)
         self.bot_orientation = 0.0
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
+
+        '''
+        Code to use if math plot is preferred to pygame
+
         plt.ion()
         self.figure, self.ax = plt.subplots(figsize=(5, 5))
         RGB_map = Scene_map.PALLET[self.occupancy_matrix]
         self.line1 = self.ax.imshow(RGB_map)
+        '''
         
         
     
@@ -86,7 +92,7 @@ class Scene_map :
                     break
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.FREE):
                     continue
-                
+
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
                 else:
@@ -95,6 +101,9 @@ class Scene_map :
             
 
     def show_map_state(self):
+        '''
+        Code to use if math plot is preferred to pygame to update the screen
+        '''
 
         #Real occupancy matrix as background
         drawn_matrix = np.copy(self.occupancy_matrix)
@@ -127,9 +136,54 @@ class Scene_map :
         self.figure.canvas.draw()
         self.figure.canvas.flush_events()
 
+    def pygame_screen_refresh(self, screen):
+
+        x_screen_size, y_screen_size = screen.get_size()
+        circle_size = np.minimum(x_screen_size,y_screen_size)/self.map_size[0]
+
+        #draw occupancy map
+        for i in range(np.shape(self.occupancy_matrix)[1]):
+            for j in range(np.shape(self.occupancy_matrix)[0]):
+                
+                pygame.draw.circle(screen, Scene_map.PALLET[self.occupancy_matrix[i][j]], self.index_to_screen_position(x_screen_size,y_screen_size,j,i),circle_size )
+
+        bot_x,bot_y = map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
+
+        #draw rays
+        for i in range(np.shape(self.ray_endings)[1]):
+            ray_x,ray_y = map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
+            pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x), self.index_to_screen_position(x_screen_size,y_screen_size,ray_y,ray_x))
+
+            '''   
+            Code to use if math plot is preferred to pygame
+
+            #irradiated_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
+            for j in range(len(irradiated_cells)-1):
+                if(self.occupancy_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] != Scene_map.OBSTACLE):
+                    pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,irradiated_cells[j][1],irradiated_cells[j][0]),circle_size )
+                else:
+                    break
+            '''
+        
+        #Draw robot
+        pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),2*circle_size)
+
+        
+    def index_to_screen_position(self,screen_width,screen_height,x,y):
+
+        cell_width = screen_width/self.map_size[0]
+        cell_height = screen_height/self.map_size[1]
+
+        #y axis is flipped so to get the y at the correct position we have to flip it again by doing y = y_size - pos
+        return (int(x * cell_width),screen_height - int( y * cell_height))
+
+
+    
+
 
 def map_position_to_mat_index(x,y):
     return int(y*10 + 75),int(x*10 + 75)
+
 
 
 def line_generation(x0,y0,x1, y1):
