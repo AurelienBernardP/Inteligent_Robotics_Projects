@@ -74,22 +74,24 @@ class Scene_map :
             #get the matrix position of the elements of interest
             ray_x,ray_y = map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             
-            #does the ray hit an obstacle or a frontier?
+            #does the ray hit an obstacle
             if(self.ray_hit[i]):
                 self.occupancy_matrix[ray_x,ray_y] = Scene_map.OBSTACLE
-            
 
             #update the state of all cells before the end of the ray
             ray_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
 
-            for j in range(len(ray_cells)):
-                if(self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] != Scene_map.OBSTACLE):
-                    if(self.is_frontier(ray_cells[j][0],ray_cells[j][1])):
-                        self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] = Scene_map.FRONTIER
-                    else:
-                        self.occupancy_matrix[ray_cells[j][0],ray_cells[j][1]] = Scene_map.FREE
-                else:
+            for cell in ray_cells:
+                if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.OBSTACLE):
                     break
+                if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.FREE):
+                    continue
+                
+                if(self.is_frontier(cell[0],cell[1])):
+                    self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
+                else:
+                    self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
+
             
 
     def show_map_state(self):
