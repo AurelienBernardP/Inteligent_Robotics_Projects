@@ -11,13 +11,16 @@ class Scene_map :
     BOT = 3
     RAY = 4
     FRONTIER = 5
-    
+    PADDING = 6
+
     PALLET = np.array([[  255,   255,   255],   # unexplored - white
                     [255,   0,   0],   # obstacle - red
                     [  0, 255,   0],   # free - green
                     [  0,   0, 255],   # bot - blue
                     [255, 255,   0],   # ray - yellow
-                    [255,   0, 255]])  # frontier - pink
+                    [255,   0, 255],   # frontier - pink
+                    [255,215,    0]])  # Padding - orange
+
 
     def __init__(self, width, height):
 
@@ -61,6 +64,18 @@ class Scene_map :
 
         return False
 
+    def add_padding(self,x,y):
+        
+        for i in range(x-4,x+5,1):
+            for j in range(y-4,y+5,1):
+                if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
+                    continue
+                
+                elif(self.occupancy_matrix[i,j] == Scene_map.FREE):
+                    self.occupancy_matrix[i,j] = Scene_map.PADDING
+
+        return 
+
     def update_contact_map_from_sensor(self,points,occupancy):
 
         self.frontier_cells = [] # to remove, need better fix (A*)
@@ -86,9 +101,9 @@ class Scene_map :
             ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             
             #does the ray hit an obstacle
-            if(self.ray_hit[i]):
+            if(self.ray_hit[i] ):
                 self.occupancy_matrix[ray_x,ray_y] = Scene_map.OBSTACLE
-
+                self.add_padding(ray_x,ray_y)
             #update the state of all cells before the end of the ray
             ray_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
 
@@ -102,7 +117,7 @@ class Scene_map :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
                     if manhattanDistance(cell, (bot_x,bot_y)) > 25: # + ajust value to youbot size ?
                         self.frontier_cells.append(cell) # useful in A*
-                else:
+                elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
             
