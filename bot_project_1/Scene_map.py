@@ -1,7 +1,7 @@
-from cmath import tanh
 import numpy as np
 import matplotlib.pyplot as plt
 import pygame
+import math
 
 class Scene_map :
 
@@ -30,6 +30,7 @@ class Scene_map :
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
 
+
         '''
         Code to use if math plot is preferred to pygame
 
@@ -50,10 +51,10 @@ class Scene_map :
 
         for i in range(x-1,x+2,1):
             for j in range(y-1,y+2,1):
-                if(i< 0 or j<0 or i > np.shape(self.occupancy_matrix)[0] or i > np.shape(self.occupancy_matrix)[1]):
+                if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
                     continue
                 
-                if(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
+                elif(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
                     return True
 
         return False
@@ -63,7 +64,7 @@ class Scene_map :
         self.ray_endings = np.hstack((points[:3,:],points[3:,:]))
         self.ray_hit = np.reshape(occupancy,(np.shape(occupancy)[0]*np.shape(occupancy)[1]))
 
-        bot_x,bot_y = map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
+        bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
         for i in range(np.shape(self.ray_endings)[1]):
 
@@ -78,7 +79,7 @@ class Scene_map :
             self.ray_endings[1,i] = self.bot_pos[1] + new_ray_coordinates[1]
 
             #get the matrix position of the elements of interest
-            ray_x,ray_y = map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
+            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             
             #does the ray hit an obstacle
             if(self.ray_hit[i]):
@@ -110,12 +111,12 @@ class Scene_map :
 
         #Overlay the robot and the covered area by the rays
         
-        bot_x,bot_y = map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
+        bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
         #TODO : draw the rays 
         
         for i in range(np.shape(self.ray_endings)[1]):
-            ray_x,ray_y = map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
+            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             irradiated_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
 
             for j in range(len(irradiated_cells)-1):
@@ -147,42 +148,44 @@ class Scene_map :
                 
                 pygame.draw.circle(screen, Scene_map.PALLET[self.occupancy_matrix[i][j]], self.index_to_screen_position(x_screen_size,y_screen_size,j,i),circle_size )
 
-        bot_x,bot_y = map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
+        bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
         #draw rays
         for i in range(np.shape(self.ray_endings)[1]):
-            ray_x,ray_y = map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
+            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x), self.index_to_screen_position(x_screen_size,y_screen_size,ray_y,ray_x))
 
-            '''   
-            Code to use if math plot is preferred to pygame
-
-            #irradiated_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
-            for j in range(len(irradiated_cells)-1):
-                if(self.occupancy_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] != Scene_map.OBSTACLE):
-                    pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,irradiated_cells[j][1],irradiated_cells[j][0]),circle_size )
-                else:
-                    break
-            '''
-        
         #Draw robot
         pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),2*circle_size)
+        
+        
+        c, s = np.cos(self.bot_orientation), np.sin(self.bot_orientation)
+        R = np.array(((c, -s), (s, c)))
+        line_end = np.dot(R,(0,-0.5))
+
+        line_start = self.bot_pos
+        line_end = np.add(line_end,self.bot_pos)
+        line_start_mat_x,line_start_mat_y = self.map_position_to_mat_index(line_start[0],line_start[1])
+        line_end_mat_x,line_end_mat_y = self.map_position_to_mat_index(line_end[0],line_end[1])
+
+        line_start = self.index_to_screen_position(x_screen_size,y_screen_size,line_start_mat_y,line_start_mat_x)
+        line_end = self.index_to_screen_position(x_screen_size,y_screen_size,line_end_mat_y,line_end_mat_x)
+        pygame.draw.line(screen, Scene_map.PALLET[Scene_map.BOT], line_start, line_end, width = int(circle_size))
 
         
     def index_to_screen_position(self,screen_width,screen_height,x,y):
 
         cell_width = screen_width/self.map_size[0]
         cell_height = screen_height/self.map_size[1]
-
         #y axis is flipped so to get the y at the correct position we have to flip it again by doing y = y_size - pos
         return (int(x * cell_width),screen_height - int( y * cell_height))
+    
+    def map_position_to_mat_index(self,x,y):
+        return np.minimum(math.floor(y*10 + 75), self.map_size[1]-1),np.minimum(math.floor(x*10 + 75),self.map_size[0]-1)
 
 
     
 
-
-def map_position_to_mat_index(x,y):
-    return int(y*10 + 75),int(x*10 + 75)
 
 
 
