@@ -14,6 +14,7 @@ import time
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import pygame
 
 from cleanup_vrep import cleanup_vrep
 from vrchk import vrchk
@@ -26,9 +27,12 @@ from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
 
 
-
 from Scene_map import Scene_map
 from astar import getActions
+
+pygame.init()
+screen = pygame.display.set_mode([700, 700])
+screen.fill((255, 255, 255))
 
 # Test the python implementation of a youbot
 # Initiate the connection to the simulator.
@@ -143,10 +147,15 @@ def getAngle(x):
             'West': -np.pi/2,
      }[x]
 
+
 # Start the demo. 
 while True:
     try:
 
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                exit()
         # Time management
         t_loop = time.perf_counter()
         # Check the connection with the simulator
@@ -172,8 +181,11 @@ while True:
         
         # is it to slow ? dont work with my part.
         #start = time.time()
+        
         house_map.update_contact_map_from_sensor(scanned_points,contacts)
-        house_map.show_map_state()
+        house_map.pygame_screen_refresh(screen)
+        pygame.display.flip()
+    
         #end = time.time()
         #total_time = end - start
         #print("\n"+ str(total_time))
