@@ -28,6 +28,7 @@ from utils_sim import angdiff
 
 
 from Scene_map import Scene_map
+from astar import getActions
 
 # Test the python implementation of a youbot
 # Initiate the connection to the simulator.
@@ -127,7 +128,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-actions = [('Est', 4), ('Nord', 4), ('West', 2)]
+actions = [('Est', 2)]
 currActionIndex = 0
 
 # To track position at the beginning of a move.
@@ -136,7 +137,7 @@ youbotFirstPos = youbotPos
 # Define a function to get the angle corresponding to each move.
 def getAngle(x):
     return {
-            'Nord': -np.pi,
+            'North': -np.pi,
             'Sud': 0,
             'Est': np.pi/2,
             'West': -np.pi/2,
@@ -171,8 +172,8 @@ while True:
         
         # is it to slow ? dont work with my part.
         #start = time.time()
-        #house_map.update_contact_map_from_sensor(scanned_points,contacts)
-        #house_map.show_map_state()
+        house_map.update_contact_map_from_sensor(scanned_points,contacts)
+        house_map.show_map_state()
         #end = time.time()
         #total_time = end - start
         #print("\n"+ str(total_time))
@@ -181,7 +182,10 @@ while True:
 
         # Apply the state machine.
         if fsm == 'planning':
-            # to implement if needed ?
+            currActionIndex = 0
+            actions = getActions(house_map)
+            print(actions)
+            fsm = 'rotate'
             print('Switching to state: ', fsm)
 
         
@@ -225,14 +229,14 @@ while True:
             if abs(distanceToGoal) < .01:
                 forwBackVel = 0  # Stop the robot.
 
-                # Perform the next action or do noting if no action remain.
+                # Perform the next action or do planning if no action remain.
                 currActionIndex = currActionIndex + 1
+                youbotFirstPos = youbotPos
                 if (currActionIndex < len(actions)):
-                    youbotFirstPos = youbotPos
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
                 else:
-                    fsm = 'idle'
+                    fsm = 'planning'
                     print('Switching to state: ', fsm)
         
 

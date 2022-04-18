@@ -28,7 +28,10 @@ class Scene_map :
         self.bot_orientation = 0.0
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
+        self.frontier_cells = []
+
         plt.ion()
+
         self.figure, self.ax = plt.subplots(figsize=(5, 5))
         RGB_map = Scene_map.PALLET[self.occupancy_matrix]
         self.line1 = self.ax.imshow(RGB_map)
@@ -89,6 +92,7 @@ class Scene_map :
                 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
+                    self.frontier_cells.append(cell) # useful in A*
                 else:
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
@@ -127,9 +131,13 @@ class Scene_map :
         self.figure.canvas.draw()
         self.figure.canvas.flush_events()
 
-
 def map_position_to_mat_index(x,y):
     return int(y*10 + 75),int(x*10 + 75)
+
+
+def getCellType(self, cell):
+    return self.occupancy_matrix[cell[0]][cell[1]]
+
 
 
 def line_generation(x0,y0,x1, y1):
