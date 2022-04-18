@@ -132,7 +132,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-actions = [('North', 4)]
+actions = [('North', 0)]
 currActionIndex = 0
 
 # To track position at the beginning of a move.
@@ -197,8 +197,12 @@ while True:
             currActionIndex = 0
             actions = getActions(house_map)
             print(actions)
-            fsm = 'rotate'
-            print('Switching to state: ', fsm)
+            if len(actions) == 0:
+                fsm = 'planning'
+                print('Switching to state: ', fsm)
+            else:
+                fsm = 'rotate'
+                print('Switching to state: ', fsm)
 
         
         elif fsm == 'rotate':
@@ -228,8 +232,13 @@ while True:
         
         elif fsm == 'moveFoward':
             
+            currActionType = actions[currActionIndex][0]
+
             # Compute the distance already travelled for this move.
-            distance = abs(youbotPos[0] - youbotFirstPos[0]) + abs(youbotPos[1] - youbotFirstPos[1])
+            if (currActionType == 'Est' or currActionType == 'West'):
+                distance = abs(youbotPos[0] - youbotFirstPos[0])
+            else:
+                distance = abs(youbotPos[1] - youbotFirstPos[1])
 
             # Compute the distance that remain to travel.
             distanceToGoal = actions[currActionIndex][1] - distance
