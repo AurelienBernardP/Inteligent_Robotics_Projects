@@ -15,13 +15,11 @@ def getActions(houseMap):
 
     path = __astar__(houseMap)
 
-    #print(path)
-
     if (len(path) == 0):
         return actions
 
+    # Convert the actions to a format readable by the youbot.
     cellDistance = 15 / 150 # to modify (hard coded)
-
     distanceToTravel = cellDistance
     currAction = path[0]
     for i in range(len(path) - 1):
@@ -32,8 +30,6 @@ def getActions(houseMap):
             distanceToTravel = cellDistance
             currAction = path[i+1]
     actions.append((currAction, round(distanceToTravel, 2)))
-
-    #print(actions)
 
     return actions
 
@@ -50,7 +46,8 @@ def __astar__(houseMap):
     state = map_position_to_mat_index(youbotPos[0], youbotPos[1])
 
     # Set goal position
-    goalCell = random.choice(houseMap.frontier_cells)
+    goalCell =  min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
+    print(goalCell)
     
     # Set the fringe.
     fringe = PriorityQueue()
@@ -81,7 +78,7 @@ def __astar__(houseMap):
             fringe.put((priority, (nextState, path + [action], childPathCost)))
 
 
-# To heavy ?
+# To heavy ? not so good
 '''
 def __heuristic__(state, houseMap):
 
@@ -95,11 +92,7 @@ def __heuristic__(state, houseMap):
 '''
 
 def __heuristic__(state, goalState):
-    return __manhattanDistance__(state, goalState)
-
-
-def __manhattanDistance__(state_1, state_2):
-    return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
+    return manhattanDistance(state, goalState)
             
 
 def __generateYoubotSuccessors__(state, houseMap):
@@ -133,6 +126,7 @@ def __generateYoubotSuccessors__(state, houseMap):
     return youbotSuccessors
 
 
+# to test
 
 '''
 path = ['North', 'North', 'North', 'North', 'Sud', 'Sud', 'Sud', 'Est', 'Est', 'Est', 'Est', 'North', 'Est', 'Sud', 'Sud']
@@ -169,4 +163,12 @@ houseMap.occupancy_matrix[10][53] = 5
 houseMap.frontier_cells.append((10,53))
 
 getActions(houseMap)
+'''
+
+'''
+state = (31,3)
+list = [(32,45), (43,3), (21,23)]
+
+goalCell =  min(list,key = lambda x: __manhattanDistance__(x,state)) 
+print(goalCell)
 '''

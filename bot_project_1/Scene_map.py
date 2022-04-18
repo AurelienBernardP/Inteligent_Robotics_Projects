@@ -62,6 +62,8 @@ class Scene_map :
 
     def update_contact_map_from_sensor(self,points,occupancy):
 
+        self.frontier_cells = [] # to remove, need better fix (A*)
+
         self.ray_endings = np.hstack((points[:3,:],points[3:,:]))
         self.ray_hit = np.reshape(occupancy,(np.shape(occupancy)[0]*np.shape(occupancy)[1]))
 
@@ -97,7 +99,8 @@ class Scene_map :
 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
-                    self.frontier_cells.append(cell) # useful in A*
+                    if manhattanDistance(cell, (bot_x,bot_y)) > 25: # + ajust value to youbot size ?
+                        self.frontier_cells.append(cell) # useful in A*
                 else:
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
@@ -181,7 +184,8 @@ class Scene_map :
         return (int(x * cell_width),screen_height - int( y * cell_height))
 
 
-    
+def manhattanDistance(state_1, state_2):
+    return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
 
 
 def map_position_to_mat_index(x,y):
