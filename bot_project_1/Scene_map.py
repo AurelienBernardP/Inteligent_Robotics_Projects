@@ -29,12 +29,14 @@ class Scene_map :
         self.bot_orientation = 0.0
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
+        self.frontier_cells = []
 
 
         '''
         Code to use if math plot is preferred to pygame
 
         plt.ion()
+
         self.figure, self.ax = plt.subplots(figsize=(5, 5))
         RGB_map = Scene_map.PALLET[self.occupancy_matrix]
         self.line1 = self.ax.imshow(RGB_map)
@@ -60,6 +62,8 @@ class Scene_map :
         return False
 
     def update_contact_map_from_sensor(self,points,occupancy):
+
+        self.frontier_cells = [] # to remove, need better fix (A*)
 
         self.ray_endings = np.hstack((points[:3,:],points[3:,:]))
         self.ray_hit = np.reshape(occupancy,(np.shape(occupancy)[0]*np.shape(occupancy)[1]))
@@ -96,6 +100,8 @@ class Scene_map :
 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
+                    if manhattanDistance(cell, (bot_x,bot_y)) > 25: # + ajust value to youbot size ?
+                        self.frontier_cells.append(cell) # useful in A*
                 else:
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
@@ -184,8 +190,13 @@ class Scene_map :
         return np.minimum(math.floor(y*10 + 75), self.map_size[1]-1),np.minimum(math.floor(x*10 + 75),self.map_size[0]-1)
 
 
-    
+def manhattanDistance(state_1, state_2):
+    return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
 
+
+
+def getCellType(self, cell):
+    return self.occupancy_matrix[cell[0]][cell[1]]
 
 
 
