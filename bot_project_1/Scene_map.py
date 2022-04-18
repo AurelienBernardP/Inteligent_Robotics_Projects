@@ -63,8 +63,6 @@ class Scene_map :
 
     def update_contact_map_from_sensor(self,points,occupancy):
 
-        self.frontier_cells = [] # to remove, need better fix (A*)
-
         self.ray_endings = np.hstack((points[:3,:],points[3:,:]))
         self.ray_hit = np.reshape(occupancy,(np.shape(occupancy)[0]*np.shape(occupancy)[1]))
 
@@ -203,9 +201,13 @@ class Scene_map :
         margin = 4 # to ajust
         for i in range(state[0]-margin,state[0]+margin+1,1):
             for j in range(state[1]-margin,state[1]+margin+1,1):
-                currCellType = self.getCellType((i,j))
-                if (currCellType == self.OBSTACLE):
+                if 0 <= i <= 149 and 0 <= j <= 149:
+                    currCellType = self.getCellType((i,j))
+                    if (currCellType == self.OBSTACLE):
+                        return True
+                else:
                     return True
+                    
         return False
 
 
