@@ -113,8 +113,7 @@ class Scene_map :
 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
-                    if manhattanDistance(cell, (bot_x,bot_y)) > 25: # + ajust value to youbot size ?
-                        self.frontier_cells.append(cell) # useful in A*
+                    self.frontier_cells.append(cell) # useful in A*
                 elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
@@ -206,8 +205,10 @@ class Scene_map :
 
     def getCellType(self, cell):
         return self.occupancy_matrix[cell[0]][cell[1]]
-
     
+    
+    # Not useful because we use padding.
+    '''
     def isYoubotCollide(self, state):
 
         if state == self.UNEXPLORED:
@@ -224,6 +225,7 @@ class Scene_map :
                     return True
                     
         return False
+    '''
 
 
 def manhattanDistance(state_1, state_2):

@@ -132,7 +132,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-actions = [('North', 0)]
+actions = [('North', 4)]
 currActionIndex = 0
 
 # To track position at the beginning of a move.

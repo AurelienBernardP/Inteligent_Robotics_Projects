@@ -45,15 +45,15 @@ def __astar__(houseMap):
     youbotPos = houseMap.bot_pos
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
     
-    '''
     # Set goal position
     goalCell =  min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
     print(goalCell)
+    
     '''
-
     # Set goal position
     goalCell =  random.choice(houseMap.frontier_cells)
     print(goalCell)
+    '''
     
     # Set the fringe.
     fringe = PriorityQueue()
@@ -79,6 +79,7 @@ def __astar__(houseMap):
         # Generate the children and add it to the fringe.
         for nextState, action in __generateYoubotSuccessors__(current, houseMap):
             # Push the current child in the fringe.
+            print(nextState, action)
             childPathCost = pathCost + 1 # create g(state) function instead ?
             priority = childPathCost + __heuristic__(nextState, goalCell)
             fringe.put((priority, (nextState, path + [action], childPathCost)))
@@ -109,22 +110,26 @@ def __generateYoubotSuccessors__(state, houseMap):
     
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
-    if not houseMap.isYoubotCollide(nextState):
+    nextStateType = houseMap.getCellType(nextState)
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
         youbotSuccessors.append((nextState, 'North'))
     
     # Generate the state resulting from moving sud.
     nextState = (state[0]-1, state[1])
-    if not houseMap.isYoubotCollide(nextState):
+    nextStateType = houseMap.getCellType(nextState)
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
         youbotSuccessors.append((nextState, 'Sud'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
-    if not houseMap.isYoubotCollide(nextState):
+    nextStateType = houseMap.getCellType(nextState)
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
         youbotSuccessors.append((nextState, 'West'))
     
     # Generate the state resulting from moving est.
     nextState = (state[0], state[1]+1)
-    if not houseMap.isYoubotCollide(nextState):
+    nextStateType = houseMap.getCellType(nextState)
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
         youbotSuccessors.append((nextState, 'Est'))
 
     return youbotSuccessors
