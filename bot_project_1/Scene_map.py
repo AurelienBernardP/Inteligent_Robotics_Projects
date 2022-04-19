@@ -211,6 +211,21 @@ class Scene_map :
         return self.occupancy_matrix[cell[0]][cell[1]]
     
     
+    def get_cell_center_coordinates(self,x,y):
+
+        cell_real_width  =  self.real_room_size[0] / self.map_size[0]# in meters
+        cell_real_height =  self.real_room_size[1] / self.map_size[1]# in meters
+        
+        # Multiply by cell number and add half a cell in each direction to get the center of the cell
+        x_coord = x * cell_real_width + cell_real_width /2
+        y_coord = y * cell_real_height + cell_real_height / 2
+
+        # Adjust for the fact that the matrix starts at the bottom left and real coordinates are centered in the middle of the map
+        x_coord -= (self.real_room_size[0]/2)
+        y_coord -= (self.real_room_size[1]/2)
+        return ( x_coord , y_coord)
+
+
     
     # Not useful because we use padding.
     '''
