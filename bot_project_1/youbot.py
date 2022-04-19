@@ -198,6 +198,7 @@ while True:
 
             currActionIndex = 0
             
+            '''
             # Set goal position (to replace by the nearest frontier point) --> need do add set of frontiers points
             goalCell = (-1,-1)
             for i in range(0,150,1):
@@ -213,6 +214,11 @@ while True:
                             goalCell = (-1,-1)
                         else:
                             break
+            '''
+
+            # Set actions to take.
+            actions = getActions(house_map)
+            print(actions)
 
             if len(actions) == 0:
                 fsm = 'planning'
@@ -241,7 +247,7 @@ while True:
                 rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .002:
+            if distanceToGoal < .01:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -270,7 +276,7 @@ while True:
                 currActionIndex = currActionIndex + 1
                 youbotFirstPos = youbotPos
                 if (currActionIndex >= len(actions)):
-                    fsm = 'planning'
+                    fsm = 'stop'
                     print('Switching to state: ', fsm)
                 else:
                     fsm = 'rotate'

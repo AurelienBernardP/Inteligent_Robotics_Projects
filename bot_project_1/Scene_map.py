@@ -211,7 +211,6 @@ class Scene_map :
         return self.occupancy_matrix[cell[0]][cell[1]]
     
     
-    
     # Not useful because we use padding.
     '''
     def isYoubotCollide(self, state):

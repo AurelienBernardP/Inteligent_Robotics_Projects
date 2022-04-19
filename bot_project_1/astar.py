@@ -9,11 +9,11 @@ from Scene_map import Scene_map
 from Scene_map import *
 
 
-def getActions(houseMap, goalCell):
+def getActions(houseMap):
     
     actions = []
 
-    path = __astar__(houseMap, goalCell)
+    path = __astar__(houseMap)
 
     if (len(path) == 0):
         return actions
@@ -34,27 +34,37 @@ def getActions(houseMap, goalCell):
     return actions
 
 
-def __astar__(houseMap, goalCell):
+def __astar__(houseMap):
 
     # Set the variables.
     path = []
     pathCost = 0
     closed = set()
 
-    # Turn the goal state to be the fist free cell next to the goal cell.
-    cellNextToGoal = (-1,-1)
-    for i in range(goalCell[0]-1,goalCell[0]+2,1):
-            for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                if houseMap.getCellType((i,j)) == houseMap.FREE:
-                    cellNextToGoal = (i,j)
-    if cellNextToGoal == (-1,-1):
-        return []
-    else:
-        goalCell = cellNextToGoal
-
     # Get youbot initial state.
     youbotPos = houseMap.bot_pos
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
+
+    print(state)
+ 
+    # Set the goal state.
+    cellNextToGoal = (-1,-1)
+    while cellNextToGoal == (-1,-1):
+        goalCell = min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
+
+        # Turn the goal state to be the fist free cell next to the goal cell.
+        for i in range(goalCell[0]-1,goalCell[0]+2,1):
+                for j in range(goalCell[1]-1,goalCell[1]+2,1):
+                    if 0 <= i <= 149 and 0 <= j <= 149:
+                        if houseMap.getCellType((i,j)) == houseMap.FREE:
+                            cellNextToGoal = (i,j)
+        if cellNextToGoal == (-1,-1):
+            houseMap.frontier_cells.discard(goalCell)
+            continue
+        else:
+            goalCell = cellNextToGoal
+    
+    print(goalCell)
     
     # Set the fringe.
     fringe = PriorityQueue()
@@ -106,9 +116,9 @@ def __costFunction__(nextState, action, path, houseMap):
     cost = 0
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
-        cost += 100
+        cost += 5 + 50 * 1 / len(path)
     if houseMap.getCellType(nextState) == houseMap.PADDING:
-        cost += 10000
+        cost += 100000
 
     return cost
     
