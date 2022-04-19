@@ -32,7 +32,6 @@ class Scene_map :
         self.bot_orientation = 0.0
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
-        self.frontier_cells = []
 
 
         '''
@@ -113,7 +112,6 @@ class Scene_map :
 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
-                    self.frontier_cells.append(cell) # useful in A*
                 elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 

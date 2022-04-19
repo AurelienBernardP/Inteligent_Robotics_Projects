@@ -9,11 +9,11 @@ from Scene_map import Scene_map
 from Scene_map import *
 
 
-def getActions(houseMap):
+def getActions(houseMap, goalCell):
     
     actions = []
 
-    path = __astar__(houseMap)
+    path = __astar__(houseMap, goalCell)
 
     if (len(path) == 0):
         return actions
@@ -34,7 +34,7 @@ def getActions(houseMap):
     return actions
 
 
-def __astar__(houseMap):
+def __astar__(houseMap, goalCell):
 
     # Set the variables.
     path = []
@@ -45,13 +45,17 @@ def __astar__(houseMap):
     youbotPos = houseMap.bot_pos
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
     
+    '''
     # Set goal position
     goalCell =  min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
     print(goalCell)
-    
+    '''
+
     '''
     # Set goal position
-    goalCell =  random.choice(houseMap.frontier_cells)
+    goalCell = (random.randint(0, 149), random.randint(0, 149))
+    while (houseMap.getCellType(goalCell) != houseMap.FREE):
+        goalCell = (random.randint(0, 149), random.randint(0, 149))
     print(goalCell)
     '''
     
@@ -79,8 +83,7 @@ def __astar__(houseMap):
         # Generate the children and add it to the fringe.
         for nextState, action in __generateYoubotSuccessors__(current, houseMap):
             # Push the current child in the fringe.
-            print(nextState, action)
-            childPathCost = pathCost + 1 # create g(state) function instead ?
+            childPathCost = pathCost + __costFunction__(nextState, action, path)
             priority = childPathCost + __heuristic__(nextState, goalCell)
             fringe.put((priority, (nextState, path + [action], childPathCost)))
 
@@ -100,6 +103,15 @@ def __heuristic__(state, houseMap):
 
 def __heuristic__(state, goalState):
     return manhattanDistance(state, goalState)
+
+
+def __costFunction__(nextState, action, path):
+    cost = 0
+    cost += 1 # time
+    if len(path) != 0 and action != path[len(path)-1]:
+        cost += 100
+
+    return cost
     
 
             
@@ -169,10 +181,11 @@ for i in range (35):
         houseMap.occupancy_matrix[i][j] = 2
 
 houseMap.occupancy_matrix[10][53] = 5
-houseMap.frontier_cells.append((10,53))
 
 getActions(houseMap)
 '''
+
+
 
 '''
 state = (31,3)
