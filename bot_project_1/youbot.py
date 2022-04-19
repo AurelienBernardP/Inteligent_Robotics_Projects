@@ -132,7 +132,6 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-goalCell = (0,0)
 actions = [('Sud', 0)]
 currActionIndex = 0
 
@@ -198,6 +197,7 @@ while True:
 
             currActionIndex = 0
             
+            '''
             # Set goal position (to replace by the nearest frontier point) --> need do add set of frontiers points
             goalCell = (-1,-1)
             for i in range(0,150,1):
@@ -213,6 +213,11 @@ while True:
                             goalCell = (-1,-1)
                         else:
                             break
+            '''
+
+            # Set actions to take.
+            actions = getActions(house_map)
+            print(actions)
 
             if len(actions) == 0:
                 fsm = 'planning'
@@ -241,7 +246,7 @@ while True:
                 rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .002:
+            if distanceToGoal < .01:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -270,16 +275,18 @@ while True:
                 currActionIndex = currActionIndex + 1
                 youbotFirstPos = youbotPos
                 if (currActionIndex >= len(actions)):
-                    fsm = 'planning'
+                    fsm = 'stop'
                     print('Switching to state: ', fsm)
                 else:
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
-
+            
+            ''' attention goal cell not define here ! 
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex >= len(actions)-2:
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
+            '''
         
 
         elif fsm == 'stop':
