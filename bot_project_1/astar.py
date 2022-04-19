@@ -9,11 +9,11 @@ from Scene_map import Scene_map
 from Scene_map import *
 
 
-def getActions(houseMap):
+def getActions(houseMap, goalCell):
     
     actions = []
 
-    path = __astar__(houseMap)
+    path = __astar__(houseMap, goalCell)
 
     if (len(path) == 0):
         return actions
@@ -34,7 +34,7 @@ def getActions(houseMap):
     return actions
 
 
-def __astar__(houseMap):
+def __astar__(houseMap, goalCell):
 
     # Set the variables.
     path = []
@@ -46,25 +46,6 @@ def __astar__(houseMap):
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
 
     print(state)
- 
-    # Set the goal state.
-    cellNextToGoal = (-1,-1)
-    while cellNextToGoal == (-1,-1):
-        goalCell = min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
-
-        # Turn the goal state to be the fist free cell next to the goal cell.
-        for i in range(goalCell[0]-1,goalCell[0]+2,1):
-                for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                    if 0 <= i <= 149 and 0 <= j <= 149:
-                        if houseMap.getCellType((i,j)) == houseMap.FREE:
-                            cellNextToGoal = (i,j)
-        if cellNextToGoal == (-1,-1):
-            houseMap.frontier_cells.discard(goalCell)
-            continue
-        else:
-            goalCell = cellNextToGoal
-    
-    print(goalCell)
     
     # Set the fringe.
     fringe = PriorityQueue()

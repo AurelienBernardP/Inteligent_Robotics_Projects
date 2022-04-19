@@ -7,6 +7,7 @@ Distributed under the GNU General Public License.
 """
 # VREP
 from multiprocessing.connection import wait
+from Scene_map import manhattanDistance
 import sim as vrep
 
 # Useful import
@@ -168,6 +169,9 @@ while True:
         res, youbotEuler = vrep.simxGetObjectOrientation(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True)
 
+        # Get youbot state.
+        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
+
         house_map.update_bot_pos((youbotPos[0],youbotPos[1]),youbotEuler[2])
 
         # Get the distance from the beacons
@@ -196,27 +200,25 @@ while True:
         if fsm == 'planning':
 
             currActionIndex = 0
-            
-            '''
-            # Set goal position (to replace by the nearest frontier point) --> need do add set of frontiers points
-            goalCell = (-1,-1)
-            for i in range(0,150,1):
-                if goalCell != (-1,-1):
-                    break
-                for j in range(0,150,1):
-                    if (house_map.getCellType((i,j)) == house_map.FRONTIER):
-                        goalCell = (i,j)
-                        print(goalCell)
-                        actions = getActions(house_map, goalCell) # set goal state here instead of in A*
-                        print(actions)
-                        if len(actions) == 0:
-                            goalCell = (-1,-1)
-                        else:
-                            break
-            '''
+
+            # Set the goal state.
+            cellNextToGoal = (-1,-1)
+            while cellNextToGoal == (-1,-1):
+                goalCell = min(house_map.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
+
+                # Turn the goal state to be the fist free cell next to the goal cell.
+                for i in range(goalCell[0]-1,goalCell[0]+2,1):
+                        for j in range(goalCell[1]-1,goalCell[1]+2,1):
+                            if 0 <= i <= 149 and 0 <= j <= 149:
+                                if house_map.getCellType((i,j)) == house_map.FREE:
+                                    cellNextToGoal = (i,j)
+                if cellNextToGoal == (-1,-1):
+                    house_map.frontier_cells.discard(goalCell)
+    
+            print(goalCell)
 
             # Set actions to take.
-            actions = getActions(house_map)
+            actions = getActions(house_map, cellNextToGoal)
             print(actions)
 
             if len(actions) == 0:
@@ -281,12 +283,11 @@ while True:
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
             
-            ''' attention goal cell not define here ! 
+
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2:
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
-            '''
         
 
         elif fsm == 'stop':
