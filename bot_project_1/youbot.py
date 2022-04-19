@@ -135,6 +135,7 @@ house_map = Scene_map(150,150)
 # Actions that will come from A* algo.
 actions = [('Sud', 0)]
 currActionIndex = 0
+goalCell = (-1,-1)
 
 # To track position at the beginning of a move.
 youbotFirstPos = youbotPos
@@ -250,7 +251,7 @@ while True:
                 rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .01:
+            if distanceToGoal < .002:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -270,7 +271,7 @@ while True:
 
             # Set the speed to reach the goal.
             forwBackVel = - 0.5 * distanceToGoal
-            
+
             # Stop when the robot reached the goal position.
             if abs(distanceToGoal) < .01:
                 forwBackVel = 0  # Stop the robot.
@@ -285,9 +286,8 @@ while True:
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
             
-
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 1:
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 10:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         

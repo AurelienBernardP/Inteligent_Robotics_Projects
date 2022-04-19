@@ -184,7 +184,6 @@ class Scene_map :
             cells_per_meter_y = self.map_size[1] / self.real_room_size[1]
             cells_per_meter_x = self.map_size[0] / self.real_room_size[0]
             for action in route:
-                print("action =", action)
                 end_line_pos = (0,0)
                 
                 if action [0] =='Sud':
@@ -195,8 +194,6 @@ class Scene_map :
                     end_line_pos = (current_node[0] + action[1] * cells_per_meter_x, current_node[1] )
                 if action [0] =='West':
                     end_line_pos = (current_node[0] - action[1] * cells_per_meter_x, current_node[1] )
-                print("current node", current_node)
-                print("end line pos =",end_line_pos)
                 pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(circle_size))
                 current_node = end_line_pos
         #Draw robot
