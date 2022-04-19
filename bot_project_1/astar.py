@@ -41,23 +41,20 @@ def __astar__(houseMap, goalCell):
     pathCost = 0
     closed = set()
 
+    # Turn the goal state to be the fist free cell next to the goal cell.
+    cellNextToGoal = (-1,-1)
+    for i in range(goalCell[0]-1,goalCell[0]+2,1):
+            for j in range(goalCell[1]-1,goalCell[1]+2,1):
+                if houseMap.getCellType((i,j)) == houseMap.FREE:
+                    cellNextToGoal = (i,j)
+    if cellNextToGoal == (-1,-1):
+        return []
+    else:
+        goalCell = cellNextToGoal
+
     # Get youbot initial state.
     youbotPos = houseMap.bot_pos
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
-    
-    '''
-    # Set goal position
-    goalCell =  min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
-    print(goalCell)
-    '''
-
-    '''
-    # Set goal position
-    goalCell = (random.randint(0, 149), random.randint(0, 149))
-    while (houseMap.getCellType(goalCell) != houseMap.FREE):
-        goalCell = (random.randint(0, 149), random.randint(0, 149))
-    print(goalCell)
-    '''
     
     # Set the fringe.
     fringe = PriorityQueue()
