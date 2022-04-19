@@ -201,19 +201,40 @@ class Scene_map :
         cell_height = screen_height/self.map_size[1]
         #y axis is flipped so to get the y at the correct position we have to flip it again by doing y = y_size - pos
         return (int(x * cell_width),screen_height - int( y * cell_height))
+
     
     def map_position_to_mat_index(self,x,y):
         return np.minimum(math.floor(y*10 + 75), self.map_size[1]-1),np.minimum(math.floor(x*10 + 75),self.map_size[0]-1)
 
 
+    def getCellType(self, cell):
+        return self.occupancy_matrix[cell[0]][cell[1]]
+    
+    
+    
+    # Not useful because we use padding.
+    '''
+    def isYoubotCollide(self, state):
+
+        if state == self.UNEXPLORED:
+            return True
+
+        margin = 4 # to ajust
+        for i in range(state[0]-margin,state[0]+margin+1,1):
+            for j in range(state[1]-margin,state[1]+margin+1,1):
+                if 0 <= i <= 149 and 0 <= j <= 149:
+                    currCellType = self.getCellType((i,j))
+                    if (currCellType == self.OBSTACLE):
+                        return True
+                else:
+                    return True
+                    
+        return False
+    '''
+
+
 def manhattanDistance(state_1, state_2):
     return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
-
-
-
-def getCellType(self, cell):
-    return self.occupancy_matrix[cell[0]][cell[1]]
-
 
 
 def line_generation(x0,y0,x1, y1):

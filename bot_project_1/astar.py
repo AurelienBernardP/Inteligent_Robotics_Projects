@@ -9,11 +9,11 @@ from Scene_map import Scene_map
 from Scene_map import *
 
 
-def getActions(houseMap):
+def getActions(houseMap, goalCell):
     
     actions = []
 
-    path = __astar__(houseMap)
+    path = __astar__(houseMap, goalCell)
 
     if (len(path) == 0):
         return actions
@@ -34,20 +34,27 @@ def getActions(houseMap):
     return actions
 
 
-def __astar__(houseMap):
+def __astar__(houseMap, goalCell):
 
     # Set the variables.
     path = []
     pathCost = 0
     closed = set()
 
+    # Turn the goal state to be the fist free cell next to the goal cell.
+    cellNextToGoal = (-1,-1)
+    for i in range(goalCell[0]-1,goalCell[0]+2,1):
+            for j in range(goalCell[1]-1,goalCell[1]+2,1):
+                if houseMap.getCellType((i,j)) == houseMap.FREE:
+                    cellNextToGoal = (i,j)
+    if cellNextToGoal == (-1,-1):
+        return []
+    else:
+        goalCell = cellNextToGoal
+
     # Get youbot initial state.
     youbotPos = houseMap.bot_pos
-    state = map_position_to_mat_index(youbotPos[0], youbotPos[1])
-
-    # Set goal position
-    goalCell =  min(houseMap.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
-    print(goalCell)
+    state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
     
     # Set the fringe.
     fringe = PriorityQueue()
@@ -73,7 +80,7 @@ def __astar__(houseMap):
         # Generate the children and add it to the fringe.
         for nextState, action in __generateYoubotSuccessors__(current, houseMap):
             # Push the current child in the fringe.
-            childPathCost = pathCost + 1 # create g(state) function instead ?
+            childPathCost = pathCost + __costFunction__(nextState, action, path, houseMap)
             priority = childPathCost + __heuristic__(nextState, goalCell)
             fringe.put((priority, (nextState, path + [action], childPathCost)))
 
@@ -93,6 +100,19 @@ def __heuristic__(state, houseMap):
 
 def __heuristic__(state, goalState):
     return manhattanDistance(state, goalState)
+
+
+def __costFunction__(nextState, action, path, houseMap):
+    cost = 0
+    cost += 1 # time
+    if len(path) != 0 and action != path[len(path)-1]:
+        cost += 100
+    if houseMap.getCellType(nextState) == houseMap.PADDING:
+        cost += 10000
+
+    return cost
+    
+
             
 
 def __generateYoubotSuccessors__(state, houseMap):
@@ -101,25 +121,25 @@ def __generateYoubotSuccessors__(state, houseMap):
     
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
-    nextStateType = getCellType(houseMap, nextState)
+    nextStateType = houseMap.getCellType(nextState)
     if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'North'))
     
     # Generate the state resulting from moving sud.
     nextState = (state[0]-1, state[1])
-    nextStateType = getCellType(houseMap, nextState)
+    nextStateType = houseMap.getCellType(nextState)
     if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'Sud'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
-    nextStateType = getCellType(houseMap, nextState)
+    nextStateType = houseMap.getCellType(nextState)
     if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'West'))
     
     # Generate the state resulting from moving est.
     nextState = (state[0], state[1]+1)
-    nextStateType = getCellType(houseMap, nextState)
+    nextStateType = houseMap.getCellType(nextState)
     if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'Est'))
 
@@ -160,10 +180,11 @@ for i in range (35):
         houseMap.occupancy_matrix[i][j] = 2
 
 houseMap.occupancy_matrix[10][53] = 5
-houseMap.frontier_cells.append((10,53))
 
 getActions(houseMap)
 '''
+
+
 
 '''
 state = (31,3)

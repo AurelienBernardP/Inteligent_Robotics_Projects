@@ -132,7 +132,8 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-actions = [('North', 4)]
+goalCell = (0,0)
+actions = [('Sud', 0)]
 currActionIndex = 0
 
 # To track position at the beginning of a move.
@@ -194,11 +195,31 @@ while True:
 
         # Apply the state machine.
         if fsm == 'planning':
+
             currActionIndex = 0
-            actions = getActions(house_map)
-            print(actions)
-            fsm = 'rotate'
-            print('Switching to state: ', fsm)
+            
+            # Set goal position (to replace by the nearest frontier point) --> need do add set of frontiers points
+            goalCell = (-1,-1)
+            for i in range(0,150,1):
+                if goalCell != (-1,-1):
+                    break
+                for j in range(0,150,1):
+                    if (house_map.getCellType((i,j)) == house_map.FRONTIER):
+                        goalCell = (i,j)
+                        print(goalCell)
+                        actions = getActions(house_map, goalCell) # set goal state here instead of in A*
+                        print(actions)
+                        if len(actions) == 0:
+                            goalCell = (-1,-1)
+                        else:
+                            break
+
+            if len(actions) == 0:
+                fsm = 'planning'
+                print('Switching to state: ', fsm)
+            else:
+                fsm = 'rotate'
+                print('Switching to state: ', fsm)
 
         
         elif fsm == 'rotate':
@@ -214,13 +235,13 @@ while True:
             # Rotate left or right (choose the best of the two move).
             if (angleRight <= angleLeft):
                 distanceToGoal = angleRight
-                rotateRightVel = - 1/2 * distanceToGoal
+                rotateRightVel = - 1/3 * distanceToGoal
             else:
                 distanceToGoal = angleLeft
-                rotateRightVel = 1/2 * distanceToGoal
+                rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .01:
+            if distanceToGoal < .002:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -229,13 +250,17 @@ while True:
         elif fsm == 'moveFoward':
             
             # Compute the distance already travelled for this move.
-            distance = abs(youbotPos[0] - youbotFirstPos[0]) + abs(youbotPos[1] - youbotFirstPos[1])
+            currActionType = actions[currActionIndex][0]
+            if (currActionType == 'Est' or currActionType == 'West'):
+                distance = abs(youbotPos[0] - youbotFirstPos[0])
+            else:
+                distance = abs(youbotPos[1] - youbotFirstPos[1])
 
             # Compute the distance that remain to travel.
             distanceToGoal = actions[currActionIndex][1] - distance
 
             # Set the speed to reach the goal.
-            forwBackVel = - 1 * distanceToGoal
+            forwBackVel = - 0.5 * distanceToGoal
             
             # Stop when the robot reached the goal position.
             if abs(distanceToGoal) < .01:
@@ -244,16 +269,28 @@ while True:
                 # Perform the next action or do planning if no action remain.
                 currActionIndex = currActionIndex + 1
                 youbotFirstPos = youbotPos
-                if (currActionIndex < len(actions)):
-                    fsm = 'rotate'
-                    print('Switching to state: ', fsm)
-                else:
+                if (currActionIndex >= len(actions)):
                     fsm = 'planning'
                     print('Switching to state: ', fsm)
+                else:
+                    fsm = 'rotate'
+                    print('Switching to state: ', fsm)
+
+            # Stop if we explored the goal cell and we are close.
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex >= len(actions)-2:
+                fsm = 'stop'
+                print('Switching to state: ', fsm)
         
 
-        elif fsm == 'idle':
-            print("wait")
+        elif fsm == 'stop':
+            forwBackVel = 0  # Stop the robot.
+            
+            # Check if the youbot is stoped.
+            if abs(youbotPos[0] - youbotFirstPos[0]) + abs(youbotPos[1] - youbotFirstPos[1]) <= .01:
+                fsm = 'planning'
+                print('Switching to state: ', fsm)
+            
+            youbotFirstPos = youbotPos
 
 
         elif fsm == 'finished':
