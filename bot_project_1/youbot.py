@@ -132,7 +132,6 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-goalCell = (0,0)
 actions = [('Sud', 0)]
 currActionIndex = 0
 
@@ -281,11 +280,13 @@ while True:
                 else:
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
-
+            
+            ''' attention goal cell not define here ! 
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex >= len(actions)-2:
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
+            '''
         
 
         elif fsm == 'stop':
