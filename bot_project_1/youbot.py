@@ -198,7 +198,7 @@ while True:
 
             currActionIndex = 0
             
-            # Set goal position
+            # Set goal position (to replace by the nearest frontier point) --> need do add set of frontiers points
             goalCell = (-1,-1)
             for i in range(0,150,1):
                 if goalCell != (-1,-1):
@@ -213,7 +213,6 @@ while True:
                             goalCell = (-1,-1)
                         else:
                             break
-
 
             if len(actions) == 0:
                 fsm = 'planning'
@@ -277,8 +276,8 @@ while True:
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
 
-            # Stop if we explored the goal cell.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex == len(actions)-1:
+            # Stop if we explored the goal cell and we are close.
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex >= len(actions)-2:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         
