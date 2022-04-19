@@ -195,6 +195,8 @@ while True:
 
         # Apply the state machine.
         if fsm == 'planning':
+
+            currActionIndex = 0
             
             # Set goal position
             goalCell = (-1,-1)
@@ -204,12 +206,15 @@ while True:
                 for j in range(0,150,1):
                     if (house_map.getCellType((i,j)) == house_map.FRONTIER):
                         goalCell = (i,j)
-                        break
-            print(goalCell)
+                        print(goalCell)
+                        actions = getActions(house_map, goalCell) # set goal state here instead of in A*
+                        print(actions)
+                        if len(actions) == 0:
+                            goalCell = (-1,-1)
+                        else:
+                            break
 
-            currActionIndex = 0
-            actions = getActions(house_map, goalCell) # set goal state here instead of in A*
-            print(actions)
+
             if len(actions) == 0:
                 fsm = 'planning'
                 print('Switching to state: ', fsm)
@@ -273,7 +278,7 @@ while True:
                     print('Switching to state: ', fsm)
 
             # Stop if we explored the goal cell.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2:
+            elif house_map.getCellType(goalCell) != house_map.FRONTIER and distanceToGoal < 2 and currActionIndex == len(actions)-1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         

@@ -83,7 +83,7 @@ def __astar__(houseMap, goalCell):
         # Generate the children and add it to the fringe.
         for nextState, action in __generateYoubotSuccessors__(current, houseMap):
             # Push the current child in the fringe.
-            childPathCost = pathCost + __costFunction__(nextState, action, path)
+            childPathCost = pathCost + __costFunction__(nextState, action, path, houseMap)
             priority = childPathCost + __heuristic__(nextState, goalCell)
             fringe.put((priority, (nextState, path + [action], childPathCost)))
 
@@ -105,11 +105,13 @@ def __heuristic__(state, goalState):
     return manhattanDistance(state, goalState)
 
 
-def __costFunction__(nextState, action, path):
+def __costFunction__(nextState, action, path, houseMap):
     cost = 0
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
         cost += 100
+    if houseMap.getCellType(nextState) == houseMap.PADDING:
+        cost += 10000
 
     return cost
     
@@ -123,25 +125,25 @@ def __generateYoubotSuccessors__(state, houseMap):
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'North'))
     
     # Generate the state resulting from moving sud.
     nextState = (state[0]-1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'Sud'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'West'))
     
     # Generate the state resulting from moving est.
     nextState = (state[0], state[1]+1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != houseMap.PADDING):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
         youbotSuccessors.append((nextState, 'Est'))
 
     return youbotSuccessors
