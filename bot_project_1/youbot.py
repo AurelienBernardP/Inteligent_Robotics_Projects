@@ -150,6 +150,8 @@ def getAngle(x):
 
 
 # Start the demo. 
+
+intial_pos_route = (0,0)
 while True:
     try:
 
@@ -187,7 +189,7 @@ while True:
         #start = time.time()
         
         house_map.update_contact_map_from_sensor(scanned_points,contacts)
-        house_map.pygame_screen_refresh(screen)
+        house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
         pygame.display.flip()
     
         #end = time.time()
@@ -219,7 +221,7 @@ while True:
 
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
-            print(actions)
+            print("actions", actions)
 
             if len(actions) == 0:
                 fsm = 'planning'
@@ -227,7 +229,7 @@ while True:
             else:
                 fsm = 'rotate'
                 print('Switching to state: ', fsm)
-
+                intial_pos_route = (youbotPos[0],youbotPos[1])
         
         elif fsm == 'rotate':
             # Compute the value of the left and right angles.

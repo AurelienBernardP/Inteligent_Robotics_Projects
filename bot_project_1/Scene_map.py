@@ -12,6 +12,7 @@ class Scene_map :
     RAY = 4
     FRONTIER = 5
     PADDING = 6
+    ROUTE = 7
 
     PALLET = np.array([[  255,   255,   255],   # unexplored - white
                     [255,   0,   0],   # obstacle - red
@@ -19,7 +20,8 @@ class Scene_map :
                     [  0,   0, 255],   # bot - blue
                     [255, 255,   0],   # ray - yellow
                     [255,   0, 255],   # frontier - pink
-                    [255,215,    0]])  # Padding - orange
+                    [255, 215,   0],   # Padding - orange
+                    [0  ,   0,   0]])  # Route - black
 
 
     def __init__(self, width, height):
@@ -159,7 +161,7 @@ class Scene_map :
         self.figure.canvas.draw()
         self.figure.canvas.flush_events()
 
-    def pygame_screen_refresh(self, screen):
+    def pygame_screen_refresh(self, screen, init_pos_route, route):
 
         x_screen_size, y_screen_size = screen.get_size()
         circle_size = np.minimum(x_screen_size,y_screen_size)/self.map_size[0]
@@ -177,6 +179,26 @@ class Scene_map :
             ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x), self.index_to_screen_position(x_screen_size,y_screen_size,ray_y,ray_x))
 
+        # draw route
+            current_node = self.map_position_to_mat_index(init_pos_route[1],init_pos_route[0])
+            cells_per_meter_y = self.map_size[1] / self.real_room_size[1]
+            cells_per_meter_x = self.map_size[0] / self.real_room_size[0]
+            for action in route:
+                print("action =", action)
+                end_line_pos = (0,0)
+                
+                if action [0] =='Sud':
+                    end_line_pos = (current_node[0], current_node[1] - action[1] * cells_per_meter_y)
+                if action [0] =='North':
+                    end_line_pos = (current_node[0], current_node[1] + action[1] * cells_per_meter_y)
+                if action [0] =='Est':
+                    end_line_pos = (current_node[0] + action[1] * cells_per_meter_x, current_node[1] )
+                if action [0] =='West':
+                    end_line_pos = (current_node[0] - action[1] * cells_per_meter_x, current_node[1] )
+                print("current node", current_node)
+                print("end line pos =",end_line_pos)
+                pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(circle_size))
+                current_node = end_line_pos
         #Draw robot
         pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),2*circle_size)
         
@@ -210,6 +232,22 @@ class Scene_map :
     def getCellType(self, cell):
         return self.occupancy_matrix[cell[0]][cell[1]]
     
+    
+    def get_cell_center_coordinates(self,x,y):
+
+        cell_real_width  =  self.real_room_size[0] / self.map_size[0]# in meters
+        cell_real_height =  self.real_room_size[1] / self.map_size[1]# in meters
+        
+        # Multiply by cell number and add half a cell in each direction to get the center of the cell
+        x_coord = x * cell_real_width + cell_real_width /2
+        y_coord = y * cell_real_height + cell_real_height / 2
+
+        # Adjust for the fact that the matrix starts at the bottom left and real coordinates are centered in the middle of the map
+        x_coord -= (self.real_room_size[0]/2)
+        y_coord -= (self.real_room_size[1]/2)
+        return ( x_coord , y_coord)
+
+
     
     # Not useful because we use padding.
     '''
