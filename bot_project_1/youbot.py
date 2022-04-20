@@ -229,6 +229,7 @@ while True:
                 fsm = 'rotate'
                 print('Switching to state: ', fsm)
                 intial_pos_route = (youbotPos[0],youbotPos[1])
+
         
         elif fsm == 'rotate':
             # Compute the value of the left and right angles.
@@ -249,7 +250,7 @@ while True:
                 rotateRightVel = 3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .002:
+            if distanceToGoal < .01:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -299,6 +300,10 @@ while True:
                 print('Switching to state: ', fsm)
             
             youbotFirstPos = youbotPos
+
+            if len(house_map.frontier_cells) == 0:
+                fsm = 'finished'
+                print('Switching to state: ', fsm)
 
 
         elif fsm == 'finished':
