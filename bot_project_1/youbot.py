@@ -150,6 +150,29 @@ def getAngle(x):
      }[x]
 
 
+def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,target_orientation):
+    
+    goal_coordinates = map_rep.get_cell_center_coordinates(target_pos_mat[1],target_pos_mat[0])
+
+    map_dir_vector = np.subtract(goal_coordinates,real_bot_position) # (x,y) vector
+    euler_dist = np.linalg.norm(map_dir_vector,2)
+    map_dir_vector = map_dir_vector / euler_dist
+
+    theta = current_orientation
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array(((c, -s), (s, c)))
+    bot_dir_vector = np.dot(R,map_dir_vector)
+
+    if target_orientation == None :
+        target_orientation = np.arctan(map_dir_vector[0]/map_dir_vector[1])
+    right_speed = - 2 * euler_dist * bot_dir_vector[0]
+    up_speed =  2 * euler_dist * bot_dir_vector[1]
+    rot_speed = 2 * angdiff(current_orientation, target_orientation)
+
+    return (right_speed,up_speed,rot_speed)
+
+
+
 # Start the demo. 
 intial_pos_route = (0,0)
 counter = 0
@@ -196,6 +219,8 @@ while True:
         #end = time.time()
         #total_time = end - start
         #print("\n"+ str(total_time))
+
+        
        
         # Apply the state machine.
         if fsm == 'planning':
@@ -205,7 +230,7 @@ while True:
             # Set the goal state.
             cellNextToGoal = (-1,-1)
             while cellNextToGoal == (-1,-1):
-                goalCell = min(house_map.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
+                goalCell = house_map.frontier_cells_list[len(house_map.frontier_cells_list)-1] # take the newest frontier point
 
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
@@ -233,7 +258,6 @@ while True:
                 print('Switching to state: ', fsm)
                 intial_pos_route = (youbotPos[0],youbotPos[1])
 
-        
         elif fsm == 'rotate':
             # Compute the value of the left and right angles.
             angle1 = youbotEuler[2]
@@ -247,10 +271,10 @@ while True:
             # Rotate left or right (choose the best of the two move).
             if (angleRight <= angleLeft):
                 distanceToGoal = angleRight
-                rotateRightVel = - 3 * distanceToGoal
+                rotateRightVel = - 1/3 * distanceToGoal
             else:
                 distanceToGoal = angleLeft
-                rotateRightVel = 3 * distanceToGoal
+                rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
             if distanceToGoal < .01:
@@ -292,6 +316,36 @@ while True:
             elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
+        
+
+        elif fsm == 'moveAndRotate':
+
+            currActionType = actions[currActionIndex][0]
+
+            distanceToTravel = actions[currActionIndex][1]
+            
+            # Probably better to give directly position to reach ? but need to compute that somewhere.
+            if (currActionType == 'North'):
+                targetPosMat = (youbotFirstPos[0]+distanceToTravel, youbotFirstPos[1])
+            elif (currActionType == 'Sud'):
+                targetPosMat = (youbotFirstPos[0]-distanceToTravel, youbotFirstPos[1])
+            elif (currActionType == 'Est'):
+                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]+distanceToTravel)
+            elif (currActionType == 'West'):
+                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]-distanceToTravel)
+
+            currentOrientation = youbotEuler[2]
+            if currActionIndex < len(actions)-1:
+                targetOrientation = getAngle(actions[currActionIndex+1][0])
+
+            realBotPosition = (youbotPos[0], youbotPos[1])
+
+            rightSpeed,upSpeed,rotSpeed = get_speeds(house_map,realBotPosition,targetPosMat,currentOrientation,targetOrientation)
+
+            # Set the speeds to reach the goal.
+            rightVel = rightSpeed
+            forwBackVel = upSpeed
+            rotateRightVel = rotSpeed
         
 
         elif fsm == 'stop':
