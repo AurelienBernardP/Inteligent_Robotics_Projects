@@ -209,17 +209,11 @@ while True:
         vrchk(vrep, res)
        
         
-        # is it to slow ? dont work with my part.
-        #start = time.time()
         if counter % 5 == 0 or counter < 5:
+            #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
             house_map.update_contact_map_from_sensor(scanned_points,contacts)
             house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
             pygame.display.flip()
-    
-        #end = time.time()
-        #total_time = end - start
-        #print("\n"+ str(total_time))
-
         
        
         # Apply the state machine.
@@ -240,8 +234,6 @@ while True:
                 if cellNextToGoal == (-1,-1):
                     house_map.frontier_cells.discard(goalCell)
                     house_map.frontier_cells_list.remove(goalCell)
-    
-            print(goalCell)
 
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
@@ -315,36 +307,6 @@ while True:
                 print('Switching to state: ', fsm)
         
 
-        elif fsm == 'moveAndRotate':
-
-            currActionType = actions[currActionIndex][0]
-
-            distanceToTravel = actions[currActionIndex][1]
-            
-            # Probably better to give directly position to reach ? but need to compute that somewhere.
-            if (currActionType == 'North'):
-                targetPosMat = (youbotFirstPos[0]+distanceToTravel, youbotFirstPos[1])
-            elif (currActionType == 'Sud'):
-                targetPosMat = (youbotFirstPos[0]-distanceToTravel, youbotFirstPos[1])
-            elif (currActionType == 'Est'):
-                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]+distanceToTravel)
-            elif (currActionType == 'West'):
-                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]-distanceToTravel)
-
-            currentOrientation = youbotEuler[2]
-            if currActionIndex < len(actions)-1:
-                targetOrientation = getAngle(actions[currActionIndex+1][0])
-
-            realBotPosition = (youbotPos[0], youbotPos[1])
-
-            rightSpeed,upSpeed,rotSpeed = get_speeds(house_map,realBotPosition,targetPosMat,currentOrientation,targetOrientation)
-
-            # Set the speeds to reach the goal.
-            rightVel = rightSpeed
-            forwBackVel = upSpeed
-            rotateRightVel = rotSpeed
-        
-
         elif fsm == 'stop':
             forwBackVel = 0  # Stop the robot.
             
@@ -361,77 +323,13 @@ while True:
 
 
         elif fsm == 'finished':
-            print('Finish')
+            print('Finished exploration, no more accessible cells in frontier')
             time.sleep(3)
             break
 
 
         else:
             sys.exit('Unknown state ' + fsm)
-
-            
-            
-
-
-
-
-
-        '''
-        # To remove -----------------------------
-        elif fsm == 'forward':
-
-            # Make the robot drive with a constant speed (very simple controller, likely to overshoot). 
-            # The speed is - 1 m/s, the sign indicating the direction to follow. Please note that the robot has
-            # limitations and cannot reach an infinite speed. 
-            forwBackVel = -1
-
-            # Stop when the robot is close to y = - 6.5. The tolerance has been determined by experiments: if it is too
-            # small, the condition will never be met (the robot position is updated every 50 ms); if it is too large,
-            # then the robot is not close enough to the position (which may be a problem if it has to pick an object,
-            # for example). 
-            if abs(youbotPos[1] + 6.5) < .02:
-                forwBackVel = 0  # Stop the robot.
-                fsm = 'backward'
-                print('Switching to state: ', fsm)
-
-
-        elif fsm == 'backward':
-            # A speed which is a function of the distance to the destination can also be used. This is useful to avoid
-            # overshooting: with this controller, the speed decreases when the robot approaches the goal. 
-            # Here, the goal is to reach y = -4.5. 
-            forwBackVel = - 2 * (youbotPos[1] + 4.5)
-            # distance to goal influences the maximum speed
-
-            # Stop when the robot is close to y = 4.5.
-            if abs(youbotPos[1] + 4.5) < .01:
-                forwBackVel = 0  # Stop the robot.
-                fsm = 'right'
-                print('Switching to state: ', fsm)
-
-        elif fsm == 'right':
-            # Move sideways, again with a proportional controller (goal: x = - 4.5). 
-            rightVel = - 2 * (youbotPos[0] + 4.5)
-
-            # Stop at x = - 4.5
-            if abs(youbotPos[0] + 4.5) < .01:
-                rightVel = 0  # Stop the robot.
-                fsm = 'rotateRight'
-                print('Switching to state: ', fsm)
-
-        elif fsm == 'rotateRight':
-            # Rotate until the robot has an angle of -pi/2 (measured with respect to the world's reference frame). 
-            # Again, use a proportional controller. In case of overshoot, the angle difference will change sign, 
-            # and the robot will correctly find its way back (e.g.: the angular speed is positive, the robot overshoots, 
-            # the anguler speed becomes negative). 
-            # youbotEuler(3) is the rotation around the vertical axis.              
-            rotateRightVel = angdiff(youbotEuler[2], (np.pi/2))
-
-            # Stop when the robot is at an angle close to -pi/2.
-            if abs(angdiff(youbotEuler[2], (-np.pi/2))) < .002:
-                rotateRightVel = 0
-                fsm = 'finished'
-                print('Switching to state: ', fsm)
-        '''
 
         # Update wheel velocities.
         h = youbot_drive(vrep, h, forwBackVel, rightVel, rotateRightVel)

@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pygame
 import math
 class Scene_map :
@@ -35,17 +34,6 @@ class Scene_map :
         self.ray_hit = []
         self.frontier_cells = set()
         self.frontier_cells_list = []
-
-        '''
-        Code to use if math plot is preferred to pygame
-
-        plt.ion()
-
-        self.figure, self.ax = plt.subplots(figsize=(5, 5))
-        RGB_map = Scene_map.PALLET[self.occupancy_matrix]
-        self.line1 = self.ax.imshow(RGB_map)
-        '''
-        
         
     
     def update_bot_pos(self, new_pos, new_orientation):
@@ -123,50 +111,7 @@ class Scene_map :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
                     self.frontier_cells.discard(cell)
                     self.frontier_cells_list.remove(cell)
-                    if(len(self.frontier_cells_list) != len(self.frontier_cells)):
-                        print("bug in frontiers len list vs len set",len(self.frontier_cells_list),len(self.frontier_cells))
-
-
-
-
-            
-
-    def show_map_state(self):
-        '''
-        Code to use if math plot is preferred to pygame to update the screen
-        '''
-
-        #Real occupancy matrix as background
-        drawn_matrix = np.copy(self.occupancy_matrix)
-
-        #Overlay the robot and the covered area by the rays
-        
-        bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
-
-        #TODO : draw the rays 
-        
-        for i in range(np.shape(self.ray_endings)[1]):
-            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
-            irradiated_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
-
-            for j in range(len(irradiated_cells)-1):
-                if(self.occupancy_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] != Scene_map.OBSTACLE):
-                    drawn_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] = Scene_map.RAY
-                else:
-                    break
-        
-        #draw the bot       
-        drawn_matrix[bot_x,bot_y] = Scene_map.BOT
-        #cast drawn matrix to the RGB maping and update display
-        RGB_map = Scene_map.PALLET[drawn_matrix]
-        self.line1.set_data(RGB_map)
-
-        plt.xlim(0,np.shape(self.occupancy_matrix)[0])
-        plt.ylim(0,np.shape(self.occupancy_matrix)[1])
-
-        self.figure.canvas.draw()
-        self.figure.canvas.flush_events()
-
+                                
     def pygame_screen_refresh(self, screen, init_pos_route, route):
 
         x_screen_size, y_screen_size = screen.get_size()
@@ -258,33 +203,13 @@ class Scene_map :
         y_coord -= (self.real_room_size[1]/2)
         return ( x_coord , y_coord)
 
-    # Not useful because we use padding.
-    '''
-    def isYoubotCollide(self, state):
-
-        if state == self.UNEXPLORED:
-            return True
-
-        margin = 4 # to ajust
-        for i in range(state[0]-margin,state[0]+margin+1,1):
-            for j in range(state[1]-margin,state[1]+margin+1,1):
-                if 0 <= i <= 149 and 0 <= j <= 149:
-                    currCellType = self.getCellType((i,j))
-                    if (currCellType == self.OBSTACLE):
-                        return True
-                else:
-                    return True
-                    
-        return False
-    '''
-
 
 def manhattanDistance(state_1, state_2):
     return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
 
 
 def line_generation(x0,y0,x1, y1):
-    """Yield integer coordinates on the line from (x0, y0) to (x1, y1).
+    """Yield integer coordinates on the line from (x0, y0) to (x1, y1) using Bresenham algorithm.
     Input coordinates should be integers.
     The result will contain both the start and the end point.
 
