@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pygame
 import math
-
 class Scene_map :
 
     UNEXPLORED = 0
@@ -35,7 +34,7 @@ class Scene_map :
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
         self.frontier_cells = set()
-
+        self.frontier_cells_list = []
 
         '''
         Code to use if math plot is preferred to pygame
@@ -62,7 +61,9 @@ class Scene_map :
                     continue
                 
                 elif(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
-                    self.frontier_cells.add((x,y))
+                    if (x,y) not in self.frontier_cells:
+                        self.frontier_cells.add((x,y))
+                        self.frontier_cells_list.append((x,y))
                     return True
 
         return False
@@ -105,12 +106,14 @@ class Scene_map :
             if(self.ray_hit[i] ):
                 self.occupancy_matrix[ray_x,ray_y] = Scene_map.OBSTACLE
                 self.add_padding(ray_x,ray_y)
+
             #update the state of all cells before the end of the ray
             ray_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
 
             for cell in ray_cells:
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.OBSTACLE):
-                    break
+                    self.add_padding(cell[0],cell[1])
+                    continue
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.FREE):
                     continue
 
@@ -119,6 +122,9 @@ class Scene_map :
                 elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
                     self.frontier_cells.discard(cell)
+                    self.frontier_cells_list.remove(cell)
+                    if(len(self.frontier_cells_list) != len(self.frontier_cells)):
+                        print("bug in frontiers len list vs len set",len(self.frontier_cells_list),len(self.frontier_cells))
 
 
 
@@ -174,6 +180,7 @@ class Scene_map :
 
         bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
+        
         #draw rays
         for i in range(np.shape(self.ray_endings)[1]):
             ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
@@ -251,8 +258,6 @@ class Scene_map :
         y_coord -= (self.real_room_size[1]/2)
         return ( x_coord , y_coord)
 
-
-    
     # Not useful because we use padding.
     '''
     def isYoubotCollide(self, state):
