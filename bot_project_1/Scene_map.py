@@ -69,8 +69,8 @@ class Scene_map :
 
     def add_padding(self,x,y):
         
-        for i in range(x-4,x+5,1):
-            for j in range(y-4,y+5,1):
+        for i in range(x-2,x+3,1):
+            for j in range(y-2,y+3,1):
                 if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
                     continue
                 
@@ -197,7 +197,7 @@ class Scene_map :
                 pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(circle_size))
                 current_node = end_line_pos
         #Draw robot
-        pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),2*circle_size)
+        pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),1.3*circle_size)
         
         
         c, s = np.cos(self.bot_orientation), np.sin(self.bot_orientation)
@@ -223,7 +223,11 @@ class Scene_map :
 
     
     def map_position_to_mat_index(self,x,y):
-        return np.minimum(math.floor(y*10 + 75), self.map_size[1]-1),np.minimum(math.floor(x*10 + 75),self.map_size[0]-1)
+
+        cells_per_meter_y = self.map_size[1] // self.real_room_size[1]
+        cells_per_meter_x = self.map_size[0] // self.real_room_size[0]
+
+        return np.minimum(math.floor(y*cells_per_meter_y + self.map_size[1]/2), self.map_size[1]-1),np.minimum(math.floor(x*cells_per_meter_x + self.map_size[0]/2),self.map_size[0]-1)
 
 
     def getCellType(self, cell):
