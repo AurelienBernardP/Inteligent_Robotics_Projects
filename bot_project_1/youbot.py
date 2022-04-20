@@ -268,10 +268,10 @@ while True:
             # Rotate left or right (choose the best of the two move).
             if (angleRight <= angleLeft):
                 distanceToGoal = angleRight
-                rotateRightVel = - 3 * distanceToGoal
+                rotateRightVel = - 1/3 * distanceToGoal
             else:
                 distanceToGoal = angleLeft
-                rotateRightVel = 3 * distanceToGoal
+                rotateRightVel = 1/3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
             if distanceToGoal < .01:
@@ -335,7 +335,9 @@ while True:
             if currActionIndex < len(actions)-1:
                 targetOrientation = getAngle(actions[currActionIndex+1][0])
 
-            rightSpeed,upSpeed,rotSpeed = get_speeds(house_map,youbotPos,targetPosMat,currentOrientation,targetOrientation)
+            realBotPosition = (youbotPos[0], youbotPos[1])
+
+            rightSpeed,upSpeed,rotSpeed = get_speeds(house_map,realBotPosition,targetPosMat,currentOrientation,targetOrientation)
 
             # Set the speeds to reach the goal.
             rightVel = rightSpeed
