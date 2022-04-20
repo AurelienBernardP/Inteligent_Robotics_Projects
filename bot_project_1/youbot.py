@@ -133,7 +133,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(150,150)
 
 # Actions that will come from A* algo.
-actions = [('Sud', 0)]
+actions = [('Est', 0)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -151,7 +151,6 @@ def getAngle(x):
 
 
 # Start the demo. 
-
 intial_pos_route = (0,0)
 while True:
     try:
@@ -197,8 +196,6 @@ while True:
         #total_time = end - start
         #print("\n"+ str(total_time))
        
-     
-
         # Apply the state machine.
         if fsm == 'planning':
 
@@ -212,9 +209,8 @@ while True:
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
                         for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                            if 0 <= i <= 149 and 0 <= j <= 149:
-                                if house_map.getCellType((i,j)) == house_map.FREE:
-                                    cellNextToGoal = (i,j)
+                            if house_map.getCellType((i,j)) == house_map.FREE:
+                                cellNextToGoal = (i,j)
                 if cellNextToGoal == (-1,-1):
                     house_map.frontier_cells.discard(goalCell)
     
