@@ -133,7 +133,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(75,75)
 
 # Actions that will come from A* algo.
-actions = [('Est', 0)]
+actions = [('Est', 5), ('North', 1)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -148,6 +148,29 @@ def getAngle(x):
             'Est': np.pi/2,
             'West': -np.pi/2,
      }[x]
+
+
+def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,target_orientation):
+    
+    goal_coordinates = map_rep.get_cell_center_coordinates(target_pos_mat[1],target_pos_mat[0])
+
+    map_dir_vector = np.subtract(goal_coordinates,real_bot_position) # (x,y) vector
+    euler_dist = np.linalg.norm(map_dir_vector,2)
+    map_dir_vector = map_dir_vector / euler_dist
+
+    theta = current_orientation
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array(((c, -s), (s, c)))
+    bot_dir_vector = np.dot(R,map_dir_vector)
+
+    if target_orientation == None :
+        target_orientation = np.arctan(map_dir_vector[0]/map_dir_vector[1])
+    right_speed = - 2 * euler_dist * bot_dir_vector[0]
+    up_speed =  2 * euler_dist * bot_dir_vector[1]
+    rot_speed = 2 * angdiff(current_orientation, target_orientation)
+
+    return (right_speed,up_speed,rot_speed)
+
 
 
 # Start the demo. 
@@ -195,6 +218,8 @@ while True:
         #end = time.time()
         #total_time = end - start
         #print("\n"+ str(total_time))
+
+        
        
         # Apply the state machine.
         if fsm == 'planning':
@@ -228,7 +253,6 @@ while True:
                 print('Switching to state: ', fsm)
                 intial_pos_route = (youbotPos[0],youbotPos[1])
 
-        
         elif fsm == 'rotate':
             # Compute the value of the left and right angles.
             angle1 = youbotEuler[2]
@@ -250,7 +274,7 @@ while True:
             # Stop when the robot reached the goal angle.
             if distanceToGoal < .01:
                 rotateRightVel = 0
-                fsm = 'moveFoward'
+                fsm = 'moveAndRotate'
                 print('Switching to state: ', fsm)
 
         
@@ -287,6 +311,34 @@ while True:
             elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 10:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
+        
+
+        elif fsm == 'moveAndRotate':
+
+            currActionType = actions[currActionIndex][0]
+
+            distanceToTravel = actions[currActionIndex][1]
+            
+            # Probably better to give directly position to reach ? but need to compute that somewhere.
+            if (currActionType == 'North'):
+                targetPosMat = (youbotFirstPos[0]+distanceToTravel, youbotFirstPos[1])
+            elif (currActionType == 'Sud'):
+                targetPosMat = (youbotFirstPos[0]-distanceToTravel, youbotFirstPos[1])
+            elif (currActionType == 'Est'):
+                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]+distanceToTravel)
+            elif (currActionType == 'West'):
+                targetPosMat = (youbotFirstPos[0], youbotFirstPos[1]-distanceToTravel)
+
+            currentOrientation = youbotEuler[2]
+            if currActionIndex < len(actions)-1:
+                targetOrientation = getAngle(actions[currActionIndex+1][0])
+
+            rightSpeed,upSpeed,rotSpeed = get_speeds(house_map,youbotPos,targetPosMat,currentOrientation,targetOrientation)
+
+            # Set the speeds to reach the goal.
+            rightVel = rightSpeed
+            forwBackVel = upSpeed
+            rotateRightVel = rotSpeed
         
 
         elif fsm == 'stop':
