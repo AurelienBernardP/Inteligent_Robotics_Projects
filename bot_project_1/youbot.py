@@ -133,7 +133,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(75,75)
 
 # Actions that will come from A* algo.
-actions = [('Est', 5), ('North', 1)]
+actions = [('Est', 0)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -230,7 +230,7 @@ while True:
             # Set the goal state.
             cellNextToGoal = (-1,-1)
             while cellNextToGoal == (-1,-1):
-                goalCell = min(house_map.frontier_cells,key = lambda x: manhattanDistance(x,state)) 
+                goalCell = house_map.frontier_cells_list[len(house_map.frontier_cells_list)-1] # take the newest frontier point
 
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
@@ -276,7 +276,7 @@ while True:
             # Stop when the robot reached the goal angle.
             if distanceToGoal < .01:
                 rotateRightVel = 0
-                fsm = 'moveAndRotate'
+                fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
 
         
