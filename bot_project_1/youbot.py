@@ -175,6 +175,7 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 
 # Start the demo. 
 intial_pos_route = (0,0)
+counter = 0
 while True:
     try:
 
@@ -210,10 +211,10 @@ while True:
         
         # is it to slow ? dont work with my part.
         #start = time.time()
-        
-        house_map.update_contact_map_from_sensor(scanned_points,contacts)
-        house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
-        pygame.display.flip()
+        if counter % 5 == 0 or counter < 5:
+            house_map.update_contact_map_from_sensor(scanned_points,contacts)
+            house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
+            pygame.display.flip()
     
         #end = time.time()
         #total_time = end - start
@@ -238,6 +239,7 @@ while True:
                                 cellNextToGoal = (i,j)
                 if cellNextToGoal == (-1,-1):
                     house_map.frontier_cells.discard(goalCell)
+                    house_map.frontier_cells_list.remove(goalCell)
     
             print(goalCell)
 
@@ -266,10 +268,10 @@ while True:
             # Rotate left or right (choose the best of the two move).
             if (angleRight <= angleLeft):
                 distanceToGoal = angleRight
-                rotateRightVel = - 1/3 * distanceToGoal
+                rotateRightVel = - 3 * distanceToGoal
             else:
                 distanceToGoal = angleLeft
-                rotateRightVel = 1/3 * distanceToGoal
+                rotateRightVel = 3 * distanceToGoal
             
             # Stop when the robot reached the goal angle.
             if distanceToGoal < .01:
