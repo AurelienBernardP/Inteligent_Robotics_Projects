@@ -97,7 +97,7 @@ def __costFunction__(nextState, action, path, houseMap):
     cost = 0
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
-        cost += 5 + 50 * 1 / len(path)
+        cost += 10
     if houseMap.getCellType(nextState) == houseMap.PADDING:
         cost += 100000
 
