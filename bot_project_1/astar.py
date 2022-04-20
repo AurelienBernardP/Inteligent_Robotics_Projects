@@ -19,7 +19,7 @@ def getActions(houseMap, goalCell):
         return actions
 
     # Convert the actions to a format readable by the youbot.
-    cellDistance = 15 / 150 # to modify (hard coded)
+    cellDistance = 15 / houseMap.map_size[0] # to modify (hard coded)
     distanceToTravel = cellDistance
     currAction = path[0]
     for i in range(len(path) - 1):
@@ -113,25 +113,25 @@ def __generateYoubotSuccessors__(state, houseMap):
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
         youbotSuccessors.append((nextState, 'North'))
     
     # Generate the state resulting from moving sud.
     nextState = (state[0]-1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
         youbotSuccessors.append((nextState, 'Sud'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
         youbotSuccessors.append((nextState, 'West'))
     
     # Generate the state resulting from moving est.
     nextState = (state[0], state[1]+1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED):
+    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
         youbotSuccessors.append((nextState, 'Est'))
 
     return youbotSuccessors

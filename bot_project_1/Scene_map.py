@@ -231,7 +231,10 @@ class Scene_map :
 
 
     def getCellType(self, cell):
-        return self.occupancy_matrix[cell[0]][cell[1]]
+        if 0 <= cell[0] <= self.map_size[0]-1 and 0 <= cell[1] <= self.map_size[1]-1:
+            return self.occupancy_matrix[cell[0]][cell[1]]
+        else:
+            return -1
     
     
     def get_cell_center_coordinates(self,x,y):
