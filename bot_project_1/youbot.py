@@ -213,10 +213,13 @@ while True:
                             if house_map.getCellType((i,j)) == house_map.FREE:
                                 cellNextToGoal = (i,j)
                 if cellNextToGoal == (-1,-1):
+                    #if not accessible remove the cell 
+                    print('goal cell not accesible',goalCell)
                     house_map.frontier_cells.discard(goalCell)
                     house_map.frontier_cells_list.remove(goalCell)
+                
     
-            print(goalCell)
+            print('goal cell',goalCell)
 
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
@@ -286,7 +289,7 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 10:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         

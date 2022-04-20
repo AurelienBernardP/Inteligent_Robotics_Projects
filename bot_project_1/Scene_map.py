@@ -35,17 +35,6 @@ class Scene_map :
         self.ray_hit = []
         self.frontier_cells = set()
         self.frontier_cells_list = []
-
-        '''
-        Code to use if math plot is preferred to pygame
-
-        plt.ion()
-
-        self.figure, self.ax = plt.subplots(figsize=(5, 5))
-        RGB_map = Scene_map.PALLET[self.occupancy_matrix]
-        self.line1 = self.ax.imshow(RGB_map)
-        '''
-        
         
     
     def update_bot_pos(self, new_pos, new_orientation):
@@ -54,28 +43,24 @@ class Scene_map :
         self.bot_orientation = new_orientation
 
     def is_frontier(self,x,y):
-
         for i in range(x-1,x+2,1):
             for j in range(y-1,y+2,1):
                 if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
                     continue
                 
                 elif(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
-                    if (x,y) not in self.frontier_cells:
-                        self.frontier_cells.add((x,y))
-                        self.frontier_cells_list.append((x,y))
                     return True
 
         return False
 
     def add_padding(self,x,y):
         
-        for i in range(x-2,x+3,1):
-            for j in range(y-2,y+3,1):
+        for i in range(x-1,x+2,1):
+            for j in range(y-1,y+2,1):
                 if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
                     continue
                 
-                elif(self.occupancy_matrix[i,j] == Scene_map.FREE):
+                elif(self.occupancy_matrix[i,j] == Scene_map.FREE and self.occupancy_matrix[i,j] != Scene_map.OBSTACLE):
                     self.occupancy_matrix[i,j] = Scene_map.PADDING
 
         return 
@@ -105,6 +90,7 @@ class Scene_map :
             #does the ray hit an obstacle
             if(self.ray_hit[i] ):
                 self.occupancy_matrix[ray_x,ray_y] = Scene_map.OBSTACLE
+
                 self.add_padding(ray_x,ray_y)
 
             #update the state of all cells before the end of the ray
@@ -113,59 +99,27 @@ class Scene_map :
             for cell in ray_cells:
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.OBSTACLE):
                     self.add_padding(cell[0],cell[1])
-                    continue
-                if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.FREE):
-                    continue
-
-                if(self.is_frontier(cell[0],cell[1])):
-                    self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
-                elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
+                    if cell in self.frontier_cells:
+                        self.frontier_cells.discard(cell)
+                        self.frontier_cells_list.remove(cell)
+                        
+                        
+                elif(self.is_frontier(cell[0],cell[1])):
+                    if cell not in self.frontier_cells:
+                        self.frontier_cells.add(cell)
+                        self.frontier_cells_list.append(cell)
+                        
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
-                    self.frontier_cells.discard(cell)
-                    self.frontier_cells_list.remove(cell)
-                    if(len(self.frontier_cells_list) != len(self.frontier_cells)):
-                        print("bug in frontiers len list vs len set",len(self.frontier_cells_list),len(self.frontier_cells))
+                else :
+                    if cell in self.frontier_cells:
+                        self.frontier_cells.discard(cell)
+                        self.frontier_cells_list.remove(cell)
+                    
+                        
+#                elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
+#                    self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
 
 
-
-
-            
-
-    def show_map_state(self):
-        '''
-        Code to use if math plot is preferred to pygame to update the screen
-        '''
-
-        #Real occupancy matrix as background
-        drawn_matrix = np.copy(self.occupancy_matrix)
-
-        #Overlay the robot and the covered area by the rays
-        
-        bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
-
-        #TODO : draw the rays 
-        
-        for i in range(np.shape(self.ray_endings)[1]):
-            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
-            irradiated_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
-
-            for j in range(len(irradiated_cells)-1):
-                if(self.occupancy_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] != Scene_map.OBSTACLE):
-                    drawn_matrix[irradiated_cells[j][0],irradiated_cells[j][1]] = Scene_map.RAY
-                else:
-                    break
-        
-        #draw the bot       
-        drawn_matrix[bot_x,bot_y] = Scene_map.BOT
-        #cast drawn matrix to the RGB maping and update display
-        RGB_map = Scene_map.PALLET[drawn_matrix]
-        self.line1.set_data(RGB_map)
-
-        plt.xlim(0,np.shape(self.occupancy_matrix)[0])
-        plt.ylim(0,np.shape(self.occupancy_matrix)[1])
-
-        self.figure.canvas.draw()
-        self.figure.canvas.flush_events()
 
     def pygame_screen_refresh(self, screen, init_pos_route, route):
 
@@ -180,6 +134,10 @@ class Scene_map :
 
         bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
+        #draw frontier cells
+        
+        for cell in self.frontier_cells:
+            pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.FRONTIER], self.index_to_screen_position(x_screen_size,y_screen_size,cell[1],cell[0]),circle_size*0.5 )
         
         #draw rays
         for i in range(np.shape(self.ray_endings)[1]):
