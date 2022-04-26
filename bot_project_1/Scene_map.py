@@ -47,11 +47,7 @@ class Scene_map :
             for j in range(y-1,y+2,1):
                 if(i < 0 or j < 0 or i >= np.shape(self.occupancy_matrix)[0] or j >= np.shape(self.occupancy_matrix)[1]):
                     continue
-                
                 elif(self.occupancy_matrix[i,j] == Scene_map.UNEXPLORED):
-                    if (x,y) not in self.frontier_cells:
-                        self.frontier_cells.add((x,y))
-                        self.frontier_cells_list.append((x,y))
                     return True
 
         return False
@@ -75,7 +71,7 @@ class Scene_map :
 
         bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
 
-        for i in range(np.shape(self.ray_endings)[1]):
+        for i in range(0,np.shape(self.ray_endings)[1],3):
 
             #get ray coordinates in absolute value relative to robot
             theta = self.bot_orientation
@@ -100,17 +96,21 @@ class Scene_map :
 
             for cell in ray_cells:
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.OBSTACLE):
-                    self.add_padding(cell[0],cell[1])
                     continue
                 if(self.occupancy_matrix[cell[0],cell[1]] == Scene_map.FREE):
                     continue
 
                 if(self.is_frontier(cell[0],cell[1])):
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FRONTIER
+                    if (cell[0],cell[1]) not in self.frontier_cells :
+                        self.frontier_cells.add(cell)
+                        self.frontier_cells_list.append(cell)
+                    
                 elif self.occupancy_matrix[cell[0],cell[1]] != Scene_map.PADDING :
                     self.occupancy_matrix[cell[0],cell[1]] = Scene_map.FREE
-                    self.frontier_cells.discard(cell)
-                    self.frontier_cells_list.remove(cell)
+                    if(cell in self.frontier_cells):
+                        self.frontier_cells.discard(cell)
+                        self.frontier_cells_list.remove(cell)
                                 
     def pygame_screen_refresh(self, screen, init_pos_route, route):
 
@@ -127,7 +127,7 @@ class Scene_map :
 
         
         #draw rays
-        for i in range(np.shape(self.ray_endings)[1]):
+        for i in range(0,np.shape(self.ray_endings)[1],3):
             ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
             pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x), self.index_to_screen_position(x_screen_size,y_screen_size,ray_y,ray_x))
 
@@ -163,7 +163,7 @@ class Scene_map :
 
         line_start = self.index_to_screen_position(x_screen_size,y_screen_size,line_start_mat_y,line_start_mat_x)
         line_end = self.index_to_screen_position(x_screen_size,y_screen_size,line_end_mat_y,line_end_mat_x)
-        pygame.draw.line(screen, Scene_map.PALLET[Scene_map.BOT], line_start, line_end, width = int(circle_size))
+        pygame.draw.line(screen, Scene_map.PALLET[Scene_map.BOT], line_start, line_end, width = 3)
 
         
     def index_to_screen_position(self,screen_width,screen_height,x,y):
