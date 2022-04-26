@@ -30,6 +30,7 @@ from utils_sim import angdiff
 
 from Scene_map import Scene_map
 from astar import getActions
+from PID_controller import PID_controller
 
 pygame.init()
 screen = pygame.display.set_mode([700, 700])
@@ -176,6 +177,10 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 # Start the demo. 
 intial_pos_route = (0,0)
 counter = 0
+
+forward_PID = PID_controller(timestep,2,0,0,True)
+rot_PID = PID_controller(timestep,2,0,0,True)
+
 while True:
     try:
 
@@ -215,7 +220,13 @@ while True:
             house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
             pygame.display.flip()
         
-       
+        
+        if counter == 400:
+            forward_PID.plot()
+            rot_PID.plot()
+        
+        print(counter,end='\r')
+        counter +=1
         # Apply the state machine.
         if fsm == 'planning':
 
@@ -262,11 +273,13 @@ while True:
                 distanceToGoal = angleRight
                 rotateRightVel = - 1/3 * distanceToGoal
             else:
-                distanceToGoal = angleLeft
+                distanceToGoal = -angleLeft
                 rotateRightVel = 1/3 * distanceToGoal
-            
+
+            rotateRightVel = rot_PID.control(0,distanceToGoal)
+
             # Stop when the robot reached the goal angle.
-            if distanceToGoal < .01:
+            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.001:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -287,8 +300,9 @@ while True:
             # Set the speed to reach the goal.
             forwBackVel = - 0.5 * distanceToGoal
 
+            forwBackVel = forward_PID.control(0,distanceToGoal)
             # Stop when the robot reached the goal position.
-            if abs(distanceToGoal) < .01:
+            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.01:
                 forwBackVel = 0  # Stop the robot.
 
                 # Perform the next action or do planning if no action remain.
