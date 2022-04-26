@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 class PID_stats():
 
     def __init__(self):
@@ -14,13 +14,11 @@ class PID_stats():
 
     def plot(self,ki,kd,kp,dt):
 
-
-
         time_scale = np.arange(0,len(self.ref_val)*dt,step= dt)
 
         plt.plot(time_scale,self.ref_val,color='green',linestyle='dashed')
         plt.plot(time_scale,self.current_val,color='red')
-        plt.title('PID signals with kp = ',kp,' ki = ',ki,' kd = ',kd)
+        plt.title(('PID signals with kp = ' + str(kp) + ' ki = ' + str(ki) + ' kd = ' + str(kd)))
         plt.legend()
         plt.show()
 
@@ -37,7 +35,7 @@ class PID_controller():
 
         self.dt = dt
         self.previous_error = 0
-
+        self.previous_reference = 0
         self.kp = kp
         self.kd = kd
         self.ki = ki
@@ -49,9 +47,13 @@ class PID_controller():
 
     def control(self,reference,current_val):
 
-        current_error = current_val - reference
-
-        derivative = (self.previous_error - current_error) / self.dt 
+        current_error =  reference - current_val
+        
+        derivative = (current_error - self.previous_error) / self.dt 
+        if self.previous_reference != reference:
+            derivative = 0
+            self.previous_reference = reference
+            
         current_speed = derivative
 
         if(current_speed != self.previous_actuator_speed):
@@ -71,4 +73,4 @@ class PID_controller():
             print("no statistics were recorded for this PID")
             return
 
-        self.PID_statistics.plot(self.ki,self.kd,self.kd,self.kp,self.dt)
+        self.PID_statistics.plot(self.ki,self.kd,self.kp,self.dt)
