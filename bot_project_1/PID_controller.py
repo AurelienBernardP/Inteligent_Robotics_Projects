@@ -60,7 +60,8 @@ class PID_controller():
         if(not math.isclose(current_speed, self.previous_actuator_speed, abs_tol=0.001)):
             #this statement prevents integration when the actuator saturates to reduce overshoots
             self.integral_effect += (current_error * self.dt)
-
+        else :
+            self.integral_effect = 0
         self.previous_error = current_error
         self.previous_actuator_speed = current_speed
 
