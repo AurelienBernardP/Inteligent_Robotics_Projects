@@ -134,7 +134,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(75,75)
 
 # Actions that will come from A* algo.
-actions = [('Est', 0)]
+actions = [('Est', 0.001)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -178,8 +178,8 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 intial_pos_route = (0,0)
 counter = 0
 
-forward_PID = PID_controller(timestep,2,0,0,True)
-rot_PID = PID_controller(timestep,2,0,0,True)
+forward_PID = PID_controller(timestep,4,5.2,1,True)
+rot_PID = PID_controller(timestep,15,5.2,3,True)
 
 while True:
     try:
@@ -221,7 +221,7 @@ while True:
             pygame.display.flip()
         
         
-        if counter == 400:
+        if counter == 1000:
             forward_PID.plot()
             rot_PID.plot()
         
@@ -279,7 +279,7 @@ while True:
             rotateRightVel = rot_PID.control(0,distanceToGoal)
 
             # Stop when the robot reached the goal angle.
-            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.001:
+            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.01:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -298,11 +298,9 @@ while True:
             distanceToGoal = actions[currActionIndex][1] - distance
 
             # Set the speed to reach the goal.
-            forwBackVel = - 0.5 * distanceToGoal
-
             forwBackVel = forward_PID.control(0,distanceToGoal)
             # Stop when the robot reached the goal position.
-            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.01:
+            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.05:
                 forwBackVel = 0  # Stop the robot.
 
                 # Perform the next action or do planning if no action remain.
