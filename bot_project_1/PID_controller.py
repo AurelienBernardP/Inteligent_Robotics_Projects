@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 class PID_stats():
 
     def __init__(self):
@@ -14,7 +15,8 @@ class PID_stats():
 
     def plot(self,ki,kd,kp,dt):
 
-        time_scale = np.arange(0,len(self.ref_val)*dt,step= dt)
+        time_scale = np.arange(len(self.ref_val))
+        time_scale =  time_scale * dt
 
         plt.plot(time_scale,self.ref_val,color='green',linestyle='dashed')
         plt.plot(time_scale,self.current_val,color='red')
@@ -55,13 +57,12 @@ class PID_controller():
             self.previous_reference = reference
             
         current_speed = derivative
-
-        if(current_speed != self.previous_actuator_speed):
-            #this statement prevents integration when the actuator saturates to prevent overshoots
+        if(not math.isclose(current_speed, self.previous_actuator_speed, abs_tol=0.001)):
+            #this statement prevents integration when the actuator saturates to reduce overshoots
             self.integral_effect += (current_error * self.dt)
-            self.previous_actuator_speed = current_speed
 
         self.previous_error = current_error
+        self.previous_actuator_speed = current_speed
 
         if(self.PID_statistics != None):
             self.PID_statistics.update(reference,current_val)
