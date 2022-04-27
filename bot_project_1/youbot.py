@@ -177,7 +177,7 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 # Start the demo. 
 intial_pos_route = (0,0)
 counter = 0
-
+show = True
 forward_PID = PID_controller(timestep,4,5.2,1,True)
 rot_PID = PID_controller(timestep,15,5.2,3,True)
 
@@ -213,12 +213,15 @@ while True:
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
        
-        
+
         if counter % 5 == 0 or counter < 5:
             #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
-            house_map.update_contact_map_from_sensor(scanned_points,contacts)
-            house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
-            pygame.display.flip()
+            house_map.update_contact_map_v2(scanned_points,contacts)
+            show = True
+        if show == 1:
+            house_map.pygame_screen_refresh_v2(screen,intial_pos_route,actions)
+            pygame.display.flip()        
+            show = False
         
         
         if counter == 1000:
@@ -240,7 +243,7 @@ while True:
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
                         for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                            if house_map.getCellType((i,j)) == house_map.FREE:
+                            if (i,j) in house_map.free_cells:
                                 cellNextToGoal = (i,j)
                 if cellNextToGoal == (-1,-1):
                     house_map.frontier_cells.discard(goalCell)
@@ -314,7 +317,7 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif house_map.getCellType(goalCell) != house_map.FRONTIER and manhattanDistance(goalCell, state) < 10:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         

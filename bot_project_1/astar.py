@@ -82,7 +82,7 @@ def __costFunction__(nextState, action, path, houseMap):
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
         cost += 10
-    if houseMap.getCellType(nextState) == houseMap.PADDING:
+    if nextState in houseMap.padding_cells:
         cost += 100000
 
     return cost
@@ -95,25 +95,25 @@ def __generateYoubotSuccessors__(state, houseMap):
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
+    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
         youbotSuccessors.append((nextState, 'North'))
     
     # Generate the state resulting from moving sud.
     nextState = (state[0]-1, state[1])
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
+    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
         youbotSuccessors.append((nextState, 'Sud'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
+    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
         youbotSuccessors.append((nextState, 'West'))
     
     # Generate the state resulting from moving est.
     nextState = (state[0], state[1]+1)
     nextStateType = houseMap.getCellType(nextState)
-    if (nextStateType != houseMap.OBSTACLE and nextStateType != houseMap.UNEXPLORED and nextStateType != -1):
+    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
         youbotSuccessors.append((nextState, 'Est'))
 
     return youbotSuccessors
