@@ -34,7 +34,7 @@ from PID_controller import PID_controller
 
 pygame.init()
 screen = pygame.display.set_mode([700, 700])
-screen.fill((255, 255, 255))
+
 
 # Test the python implementation of a youbot
 # Initiate the connection to the simulator.

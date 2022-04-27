@@ -12,24 +12,26 @@ class Scene_map :
     PADDING = 6
     ROUTE = 7
 
-    PALLET = np.array([[  255,   255,   255],   # unexplored - white
-                    [255,   0,   0],   # obstacle - red
-                    [  0, 255,   0],   # free - green
-                    [  0,   0, 255],   # bot - blue
-                    [255, 255,   0],   # ray - yellow
-                    [255,   0, 255],   # frontier - pink
-                    [255, 215,   0],   # Padding - orange
-                    [0  ,   0,   0]])  # Route - black
+    PALLET = np.array([[112, 128, 144],   # unexplored - grey
+                       [255,   0,   0],   # obstacle - red
+                       [  0, 255,   0],   # free - green
+                       [  0,   0, 255],   # bot - blue
+                       [255, 255,   0],   # ray - yellow
+                       [255,   0, 255],   # frontier - pink
+                       [255, 215,   0],   # Padding - orange
+                       [0  ,   0,   0]])  # Route - black
 
 
     def __init__(self, width, height):
 
-        self.map_size = (width,height)
+        self.map_size = (width,height) #(x_size,y_size) in matrix cells
         self.occupancy_matrix = np.zeros((height, width), dtype=int)
-        self.real_room_size = (15,15) # in meters
+
+        self.real_room_size = (15,15) # (x_size,y_size) in meters
         
-        self.bot_pos = np.zeros(2) #(x,y)
-        self.bot_orientation = 0.0
+        self.bot_pos = np.zeros(2) #(x,y)in meters matrix position
+        self.bot_orientation = 0.0 # in radians
+
         self.ray_endings = [] # matrix of Nb_rays columns and each column = (x,y,z)
         self.ray_hit = []
         self.frontier_cells = set()
@@ -115,8 +117,11 @@ class Scene_map :
     def pygame_screen_refresh(self, screen, init_pos_route, route):
 
         x_screen_size, y_screen_size = screen.get_size()
-        circle_size = np.minimum(x_screen_size,y_screen_size)/self.map_size[0]
+        circle_size = (np.minimum(x_screen_size,y_screen_size)/self.map_size[0])/2
 
+        #background
+        screen.fill((112, 128, 144))
+        
         #draw occupancy map
         for i in range(np.shape(self.occupancy_matrix)[1]):
             for j in range(np.shape(self.occupancy_matrix)[0]):
@@ -128,8 +133,7 @@ class Scene_map :
         
         #draw rays
         for i in range(0,np.shape(self.ray_endings)[1],3):
-            ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
-            pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x), self.index_to_screen_position(x_screen_size,y_screen_size,ray_y,ray_x))
+            pygame.draw.line(screen, Scene_map.PALLET[Scene_map.RAY],self.get_screen_pos_from_map_coordinates(screen,self.bot_pos), self.get_screen_pos_from_map_coordinates(screen,(self.ray_endings[0,i],self.ray_endings[1,i])))
 
         # draw route
             current_node = self.map_position_to_mat_index(init_pos_route[1],init_pos_route[0])
@@ -146,11 +150,10 @@ class Scene_map :
                     end_line_pos = (current_node[0] + action[1] * cells_per_meter_x, current_node[1] )
                 if action [0] =='West':
                     end_line_pos = (current_node[0] - action[1] * cells_per_meter_x, current_node[1] )
-                pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(circle_size))
+                pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(2*circle_size))
                 current_node = end_line_pos
         #Draw robot
-        pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.index_to_screen_position(x_screen_size,y_screen_size,bot_y,bot_x),1.3*circle_size)
-        
+        pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.BOT], self.get_screen_pos_from_map_coordinates(screen,self.bot_pos),2*circle_size)
         
         c, s = np.cos(self.bot_orientation), np.sin(self.bot_orientation)
         R = np.array(((c, -s), (s, c)))
@@ -158,11 +161,9 @@ class Scene_map :
 
         line_start = self.bot_pos
         line_end = np.add(line_end,self.bot_pos)
-        line_start_mat_x,line_start_mat_y = self.map_position_to_mat_index(line_start[0],line_start[1])
-        line_end_mat_x,line_end_mat_y = self.map_position_to_mat_index(line_end[0],line_end[1])
 
-        line_start = self.index_to_screen_position(x_screen_size,y_screen_size,line_start_mat_y,line_start_mat_x)
-        line_end = self.index_to_screen_position(x_screen_size,y_screen_size,line_end_mat_y,line_end_mat_x)
+        line_start = self.get_screen_pos_from_map_coordinates(screen,self.bot_pos)
+        line_end = self.get_screen_pos_from_map_coordinates(screen,line_end)
         pygame.draw.line(screen, Scene_map.PALLET[Scene_map.BOT], line_start, line_end, width = 3)
 
         
@@ -179,7 +180,7 @@ class Scene_map :
         cells_per_meter_y = self.map_size[1] // self.real_room_size[1]
         cells_per_meter_x = self.map_size[0] // self.real_room_size[0]
 
-        return np.minimum(math.floor(y*cells_per_meter_y + self.map_size[1]/2), self.map_size[1]-1),np.minimum(math.floor(x*cells_per_meter_x + self.map_size[0]/2),self.map_size[0]-1)
+        return np.minimum(int(y*cells_per_meter_y + self.map_size[1]/2), self.map_size[1]-1),np.minimum(int(x*cells_per_meter_x + self.map_size[0]/2),self.map_size[0]-1)
 
 
     def getCellType(self, cell):
@@ -203,6 +204,16 @@ class Scene_map :
         y_coord -= (self.real_room_size[1]/2)
         return ( x_coord , y_coord)
 
+    def get_screen_pos_from_map_coordinates(self,screen,map_pos):
+        x_screen_size, y_screen_size = screen.get_size()
+
+        #screen coordinates start from top left and y axis is flipped
+        #map coordinates start in the middle of the map and follow regular conventions
+
+        screen_pos_x = (map_pos[0] + (self.real_room_size[0]/2)) * (x_screen_size / self.real_room_size[0])
+        screen_pos_y = 700 - ((map_pos[1] + (self.real_room_size[1]/2)) * (y_screen_size/ self.real_room_size[1]))
+
+        return (screen_pos_x,screen_pos_y)
 
 def manhattanDistance(state_1, state_2):
     return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
