@@ -17,7 +17,7 @@ def getActions(houseMap, goalCell):
         return actions
 
     # Convert the actions to a format readable by the youbot.
-    cellDistance = 15 / houseMap.map_size[0] # to modify (hard coded)
+    cellDistance = houseMap.real_room_size[0] / houseMap.map_size[0]
     distanceToTravel = cellDistance
     currAction = path[0]
     for i in range(len(path) - 1):
