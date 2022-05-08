@@ -64,7 +64,7 @@ class Scene_map :
     def is_frontier(self,position):
         (x,y) = position
 
-        if ((x-1) <= 0 or (y-1) <= 0 or (x+1) >= np.shape(self.occupancy_matrix)[0] or (y+1) >= np.shape(self.occupancy_matrix)[1]):
+        if ((x-1) < 0 or (y-1) < 0 or (x+1) >= np.shape(self.occupancy_matrix)[0] or (y+1) >= np.shape(self.occupancy_matrix)[1]):
             return True
 
         for i in range(-1,2):
@@ -115,8 +115,6 @@ class Scene_map :
             bot_x,bot_y = self.map_position_to_mat_index(self.bot_pos[0],self.bot_pos[1])
             #update the state of all cells before the end of the ray
             ray_cells = line_generation(bot_x,bot_y, ray_x, ray_y)
-            ray_cells.pop() # remove last cell which is the hit cell
-            
 
             for cell in ray_cells:
                 if(cell in self.explored_cells):
@@ -246,7 +244,7 @@ class Scene_map :
         #map coordinates start in the middle of the map and follow regular conventions
 
         screen_pos_x = (map_pos[0] + (self.real_room_size[0]/2)) * (x_screen_size / self.real_room_size[0])
-        screen_pos_y = 700 - ((map_pos[1] + (self.real_room_size[1]/2)) * (y_screen_size/ self.real_room_size[1]))
+        screen_pos_y = y_screen_size - ((map_pos[1] + (self.real_room_size[1]/2)) * (y_screen_size/ self.real_room_size[1]))
 
         return (screen_pos_x,screen_pos_y)
 
