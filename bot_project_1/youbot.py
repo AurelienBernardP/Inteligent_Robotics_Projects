@@ -7,7 +7,7 @@ Distributed under the GNU General Public License.
 """
 # VREP
 from multiprocessing.connection import wait
-from Scene_map import manhattanDistance
+from Scene_map_v2 import manhattanDistance
 import sim as vrep
 
 # Useful import
@@ -28,7 +28,7 @@ from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
 
 
-from Scene_map import Scene_map
+from Scene_map_v2 import Scene_map
 from astar import getActions
 from PID_controller import PID_controller
 
@@ -178,8 +178,8 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 intial_pos_route = (0,0)
 counter = 0
 show = True
-forward_PID = PID_controller(timestep,4,5.2,1,True)
-rot_PID = PID_controller(timestep,15,5.2,3,True)
+forward_PID = PID_controller(timestep,3,0.8,0,True)
+rot_PID = PID_controller(timestep,3.05,0.8,0,True)
 
 while True:
     try:
@@ -216,15 +216,15 @@ while True:
 
         if counter % 5 == 0 or counter < 5:
             #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
-            house_map.update_contact_map_v2(scanned_points,contacts)
+            house_map.update_contact_map(scanned_points,contacts)
             show = True
         if show == 1:
-            house_map.pygame_screen_refresh_v2(screen,intial_pos_route,actions)
+            house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
             pygame.display.flip()        
             show = False
         
         
-        if counter == 1000:
+        if counter == 550:
             forward_PID.plot()
             rot_PID.plot()
         
@@ -282,7 +282,7 @@ while True:
             rotateRightVel = rot_PID.control(0,distanceToGoal)
 
             # Stop when the robot reached the goal angle.
-            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.01:
+            if abs(distanceToGoal) < .0005 and abs(rotateRightVel) < 0.001:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -303,7 +303,7 @@ while True:
             # Set the speed to reach the goal.
             forwBackVel = forward_PID.control(0,distanceToGoal)
             # Stop when the robot reached the goal position.
-            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.05:
+            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.01:
                 forwBackVel = 0  # Stop the robot.
 
                 # Perform the next action or do planning if no action remain.
