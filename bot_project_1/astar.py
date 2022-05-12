@@ -43,7 +43,6 @@ def __astar__(houseMap, goalCell):
     youbotPos = houseMap.bot_pos
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
 
-    
     # Set the fringe.
     fringe = PriorityQueue()
     fringe.put((0, (state, path, pathCost)))
@@ -77,13 +76,21 @@ def __heuristic__(state, goalState):
     return manhattanDistance(state, goalState)
 
 
-def __costFunction__(nextState, action, path, houseMap):
+def __costFunction__(state, action, path, houseMap):
     cost = 0
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
         cost += 10
-    if nextState in houseMap.padding_cells:
+    if state in houseMap.padding_cells:
         cost += 100000
+    
+    # Penalized an initial rotation of the youbot.
+    if len(path) == 0:
+        actionAngle = getAngle(action)
+        youbotAngle = houseMap.bot_orientation
+        if abs(actionAngle - youbotAngle) > 0.2:
+            print("rotation cost")
+            cost += 15
 
     return cost
     
@@ -117,3 +124,13 @@ def __generateYoubotSuccessors__(state, houseMap):
         youbotSuccessors.append((nextState, 'Est'))
 
     return youbotSuccessors
+
+
+# Define a function to get the angle corresponding to each move.
+def getAngle(x):
+    return {
+            'North': -np.pi,
+            'Sud': 0,
+            'Est': np.pi/2,
+            'West': -np.pi/2,
+     }[x]

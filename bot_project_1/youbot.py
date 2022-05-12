@@ -30,6 +30,7 @@ from utils_sim import angdiff
 
 from Scene_map_v2 import Scene_map
 from astar import getActions
+from astar import getAngle
 from PID_controller import PID_controller
 
 pygame.init()
@@ -141,16 +142,6 @@ goalCell = (-1,-1)
 # To track position at the beginning of a move.
 youbotFirstPos = youbotPos
 
-# Define a function to get the angle corresponding to each move.
-def getAngle(x):
-    return {
-            'North': -np.pi,
-            'Sud': 0,
-            'Est': np.pi/2,
-            'West': -np.pi/2,
-     }[x]
-
-
 def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,target_orientation):
     
     goal_coordinates = map_rep.get_cell_center_coordinates(target_pos_mat[1],target_pos_mat[0])
@@ -188,8 +179,10 @@ while True:
             if event.type == pygame.QUIT:
                 running = False
                 exit()
+
         # Time management
         t_loop = time.perf_counter()
+
         # Check the connection with the simulator
         if vrep.simxGetConnectionId(clientID) == -1:
             sys.exit('Lost connection to remote API.')
@@ -228,12 +221,15 @@ while True:
             forward_PID.plot()
             rot_PID.plot()
         
-        print(counter,end='\r')
+        #print(counter,end='\r')
         counter +=1
+        
         # Apply the state machine.
         if fsm == 'planning':
 
             currActionIndex = 0
+
+            house_map.update_contact_map(scanned_points,contacts) # to remove
 
             # Set the goal state.
             cellNextToGoal = (-1,-1)
@@ -282,7 +278,7 @@ while True:
             rotateRightVel = rot_PID.control(0,distanceToGoal)
 
             # Stop when the robot reached the goal angle.
-            if abs(distanceToGoal) < .0005 and abs(rotateRightVel) < 0.001:
+            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.1:
                 rotateRightVel = 0
                 fsm = 'moveFoward'
                 print('Switching to state: ', fsm)
@@ -302,8 +298,10 @@ while True:
 
             # Set the speed to reach the goal.
             forwBackVel = forward_PID.control(0,distanceToGoal)
+            #forwBackVel = - 0.5 * distanceToGoal  # to remove
+
             # Stop when the robot reached the goal position.
-            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.01:
+            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.1:
                 forwBackVel = 0  # Stop the robot.
 
                 # Perform the next action or do planning if no action remain.
@@ -317,7 +315,7 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 15:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
         
