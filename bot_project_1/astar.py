@@ -89,7 +89,6 @@ def __costFunction__(state, action, path, houseMap):
         actionAngle = getAngle(action)
         youbotAngle = houseMap.bot_orientation
         if abs(actionAngle - youbotAngle) > 0.2:
-            print("rotation cost")
             cost += 15
 
     return cost

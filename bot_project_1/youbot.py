@@ -239,7 +239,7 @@ while True:
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
                         for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                            if (i,j) in house_map.free_cells:
+                            if (i,j) in house_map.free_cells and (i,j) not in house_map.padding_cells:
                                 cellNextToGoal = (i,j)
                 if cellNextToGoal == (-1,-1):
                     house_map.frontier_cells.discard(goalCell)
