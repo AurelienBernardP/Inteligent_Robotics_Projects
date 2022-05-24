@@ -16,6 +16,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import pygame
+import math 
 
 from cleanup_vrep import cleanup_vrep
 from vrchk import vrchk
@@ -135,7 +136,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(75,75)
 
 # Actions that will come from A* algo.
-actions = [('Est', 0.001)]
+actions = [('East', 0.001)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -217,9 +218,9 @@ while True:
             show = False
         
         
-        if counter == 550:
-            forward_PID.plot()
-            rot_PID.plot()
+        #if counter == 550:
+            #forward_PID.plot()
+            #rot_PID.plot()
         
         #print(counter,end='\r')
         counter +=1
@@ -250,6 +251,8 @@ while True:
             print("actions", actions)
 
             if len(actions) == 0:
+                house_map.frontier_cells.discard(goalCell) # use frontier_cells or list ? due to unreachable green in map ? 
+                house_map.frontier_cells_list.remove(goalCell)
                 fsm = 'planning'
                 print('Switching to state: ', fsm)
             else:
@@ -287,11 +290,7 @@ while True:
         elif fsm == 'moveFoward':
             
             # Compute the distance already travelled for this move.
-            currActionType = actions[currActionIndex][0]
-            if (currActionType == 'Est' or currActionType == 'West'):
-                distance = abs(youbotPos[0] - youbotFirstPos[0])
-            else:
-                distance = abs(youbotPos[1] - youbotFirstPos[1])
+            distance = math.sqrt(abs(youbotPos[0] - youbotFirstPos[0])**2 + abs(youbotPos[1] - youbotFirstPos[1])**2)
 
             # Compute the distance that remain to travel.
             distanceToGoal = actions[currActionIndex][1] - distance

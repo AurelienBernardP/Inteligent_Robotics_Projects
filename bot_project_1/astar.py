@@ -3,31 +3,22 @@
 
 from queue import PriorityQueue
 
-from Scene_map import Scene_map
-from Scene_map import *
+import numpy as np
+import math
 
+from Scene_map_v2 import manhattanDistance
 
 def getActions(houseMap, goalCell):
-    
-    actions = []
 
     path = __astar__(houseMap, goalCell)
 
     if (len(path) == 0):
-        return actions
+        return []
 
-    # Convert the actions to a format readable by the youbot.
+    # Compute the distance beetwen two adjacent cells in the map.
     cellDistance = houseMap.real_room_size[0] / houseMap.map_size[0]
-    distanceToTravel = cellDistance
-    currAction = path[0]
-    for i in range(len(path) - 1):
-        if path[i+1] == currAction:
-            distanceToTravel += cellDistance
-        else:
-            actions.append((currAction, round(distanceToTravel, 2)))
-            distanceToTravel = cellDistance
-            currAction = path[i+1]
-    actions.append((currAction, round(distanceToTravel, 2)))
+
+    actions = __convertPathToActions__(cellDistance, path)
 
     return actions
 
@@ -73,14 +64,15 @@ def __astar__(houseMap, goalCell):
 
 
 def __heuristic__(state, goalState):
-    return manhattanDistance(state, goalState)
+    #return manhattanDistance(state, goalState)
+    return math.sqrt((state[0] - goalState[0])**2 + (state[1] - goalState[1])**2) # or manatthan ?
 
 
 def __costFunction__(state, action, path, houseMap):
     cost = 0
     cost += 1 # time
     if len(path) != 0 and action != path[len(path)-1]:
-        cost += 10
+        cost += 20000
     if state in houseMap.padding_cells:
         cost += 100000
     
@@ -89,47 +81,124 @@ def __costFunction__(state, action, path, houseMap):
         actionAngle = getAngle(action)
         youbotAngle = houseMap.bot_orientation
         if abs(actionAngle - youbotAngle) > 0.2:
-            cost += 15
+            cost += 50000
 
     return cost
     
 
 def __generateYoubotSuccessors__(state, houseMap):
 
-    youbotSuccessors = []
+    youbotCandidateSucessors = []
     
     # Generate the state resulting from moving north.
     nextState = (state[0]+1, state[1])
-    nextStateType = houseMap.getCellType(nextState)
-    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
-        youbotSuccessors.append((nextState, 'North'))
+    youbotCandidateSucessors.append((nextState, 'North'))
+
+    # Generate the state resulting from moving north-east.
+    nextState = (state[0]+1, state[1]+1)
+    youbotCandidateSucessors.append((nextState, 'North-East'))
+
+    # Generate the state resulting from moving east.
+    nextState = (state[0], state[1]+1)
+    youbotCandidateSucessors.append((nextState, 'East'))
+
+    # Generate the state resulting from moving south-east.
+    nextState = (state[0]-1, state[1]+1)
+    youbotCandidateSucessors.append((nextState, 'South-East'))
     
-    # Generate the state resulting from moving sud.
+    # Generate the state resulting from moving south.
     nextState = (state[0]-1, state[1])
-    nextStateType = houseMap.getCellType(nextState)
-    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
-        youbotSuccessors.append((nextState, 'Sud'))
+    youbotCandidateSucessors.append((nextState, 'South'))
+
+    # Generate the state resulting from moving south-west.
+    nextState = (state[0]-1, state[1]-1)
+    youbotCandidateSucessors.append((nextState, 'South-West'))
     
     # Generate the state resulting from moving west.
     nextState = (state[0], state[1]-1)
-    nextStateType = houseMap.getCellType(nextState)
-    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
-        youbotSuccessors.append((nextState, 'West'))
+    youbotCandidateSucessors.append((nextState, 'West'))
+
+    # Generate the state resulting from moving north-west.
+    nextState = (state[0]+1, state[1]-1)
+    youbotCandidateSucessors.append((nextState, 'North-West'))
     
-    # Generate the state resulting from moving est.
-    nextState = (state[0], state[1]+1)
-    nextStateType = houseMap.getCellType(nextState)
-    if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
-        youbotSuccessors.append((nextState, 'Est'))
+    # Return the successor states that are valid.
+    youbotSuccessors = []
+    for youbotSuccessor in youbotCandidateSucessors:
+        nextState = youbotSuccessor[0]
+        nextStateType = houseMap.getCellType(nextState)
+        if (nextState not in houseMap.obstacle_cells and nextState in houseMap.explored_cells and nextStateType != -1):
+            youbotSuccessors.append(youbotSuccessor)
 
     return youbotSuccessors
+
+
+def __convertPathToActions__(cellDistance, path):
+    """Convert the path to a list of actions readable by the youbot.
+       ...
+    """
+
+    actions = []
+    
+    # Convert the path to a list of actions.
+    i = 0
+    while i < len(path):
+        # Fetch the current action type.
+        currAction = path[i]
+
+        # Set the distance to travel for the first action of the move.
+        if isMoveDiagonal(path[i]):
+            distanceToTravel = math.sqrt(cellDistance**2 + cellDistance**2)
+        else:
+            distanceToTravel = cellDistance
+        
+        # Increase the distance to travel if still same move.
+        while i+1 < len(path) and currAction == path[i+1]:
+            # Compute the current distance to travel.
+            if isMoveDiagonal(currAction):
+                currDistanceToTravel = math.sqrt(cellDistance**2 + cellDistance**2)
+            else:
+                currDistanceToTravel = cellDistance
+        
+            # Add the distance.
+            distanceToTravel += currDistanceToTravel
+            i = i + 1
+        
+        # Go the the next move.
+        actions.append((currAction, round(distanceToTravel, 2)))
+        i = i + 1
+
+    return actions
 
 
 # Define a function to get the angle corresponding to each move.
 def getAngle(x):
     return {
             'North': -np.pi,
-            'Sud': 0,
-            'Est': np.pi/2,
+            'North-East': 3*np.pi/4,
+            'East': np.pi/2,
+            'South-East': np.pi/4,
+            'South': 0,
+            'South-West': -np.pi/4,
             'West': -np.pi/2,
+            'North-West': -3*np.pi/4,
      }[x]
+
+def isMoveDiagonal(action):
+    if action in {'North-East', 'South-East', 'South-West', 'North-West'}:
+        return True 
+    else:
+        return False
+
+
+
+'''
+print(isMoveDiagonal('South-East'))
+
+
+path = ['North', 'East', 'North', 'West', 'West', 'West', 'West', 'West', 'South-East', 'South-East', 'South-East', 'South', 'South', 'North']
+
+
+print(__convertPathToActions__(0.1, path))
+'''
+

@@ -1,4 +1,6 @@
+import imp
 import numpy as np
+import math
 import pygame
 
 class Scene_map :
@@ -173,15 +175,26 @@ class Scene_map :
             cells_per_meter_x = self.map_size[0] / self.real_room_size[0]
             for action in route:
                 end_line_pos = (0,0)
+
+                distance_diag = action[1] / math.sqrt(2) * cells_per_meter_x # only work if x = y
                 
-                if action [0] =='Sud':
-                    end_line_pos = (current_node[0], current_node[1] - action[1] * cells_per_meter_y)
                 if action [0] =='North':
                     end_line_pos = (current_node[0], current_node[1] + action[1] * cells_per_meter_y)
-                if action [0] =='Est':
+                if action [0] =='North-East':
+                    end_line_pos = (current_node[0] + distance_diag, current_node[1] + distance_diag)
+                if action [0] =='East':
                     end_line_pos = (current_node[0] + action[1] * cells_per_meter_x, current_node[1] )
+                if action [0] =='South-East':
+                    end_line_pos = (current_node[0] + distance_diag, current_node[1] - distance_diag)
+                if action [0] =='South':
+                    end_line_pos = (current_node[0], current_node[1] - action[1] * cells_per_meter_y)
+                if action [0] =='South-West':
+                    end_line_pos = (current_node[0] - distance_diag, current_node[1] - distance_diag)
                 if action [0] =='West':
                     end_line_pos = (current_node[0] - action[1] * cells_per_meter_x, current_node[1] )
+                if action [0] =='North-West':
+                    end_line_pos = (current_node[0] - distance_diag, current_node[1] + distance_diag)
+
                 pygame.draw.line(screen,Scene_map.PALLET[Scene_map.ROUTE],self.index_to_screen_position(x_screen_size,y_screen_size,current_node[0],current_node[1]),self.index_to_screen_position(x_screen_size,y_screen_size,end_line_pos[0],end_line_pos[1]),width=int(2*circle_size))
                 current_node = end_line_pos
         #Draw robot
