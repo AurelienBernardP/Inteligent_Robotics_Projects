@@ -1,4 +1,4 @@
-## implementation inspired from IA course project implementation
+## implementation inspired from my last year IA course project implementation
 ## add credit !
 
 from queue import PriorityQueue
@@ -71,8 +71,12 @@ def __heuristic__(state, goalState):
 def __costFunction__(state, action, path, houseMap):
     cost = 0
     cost += 1 # time
+
+    if isMoveDiagonal(action):
+        cost += 2
+
     if len(path) != 0 and action != path[len(path)-1]:
-        cost += 20000
+        cost += 500
     if state in houseMap.padding_cells:
         cost += 100000
     
@@ -81,7 +85,7 @@ def __costFunction__(state, action, path, houseMap):
         actionAngle = getAngle(action)
         youbotAngle = houseMap.bot_orientation
         if abs(actionAngle - youbotAngle) > 0.2:
-            cost += 50000
+            cost += 500
 
     return cost
     
