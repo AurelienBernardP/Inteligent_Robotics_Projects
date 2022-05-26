@@ -190,6 +190,11 @@ while True:
             print(pts.shape)
             vrep.simxSynchronousTrigger(clientID)
             vrep.simxGetPingTime(clientID)
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(pts[:, 0], pts[:, 2], pts[:, 1], marker="*")
+            fig
             
             ###################################################################
             # Processing of your point cloud, depth images, etc...
@@ -198,7 +203,8 @@ while True:
             T_xyz_ref = get_transform(h["xyzSensor"], h["ref"])
             
             positionToGrasp = np.array([np.average(pts[:][0]), np.average(pts[:][1]), np.average(pts[:][2]), 1])
-            #positionToGrasp = np.array([0,0,0,1])
+
+            positionToGrasp = np.array([-0.025,-0.30,0.20,1])
             print(positionToGrasp)
             positionToGrasp = np.matmul(T_xyz_ref,positionToGrasp)
             print(positionToGrasp)
@@ -252,10 +258,12 @@ while True:
             # Compute arm to ref
             T_arm_ref = get_transform(h["armRef"], h["ref"])
             # Compute the grasp
-            positionToGrasp = np.array([-positionToGrasp[0], -positionToGrasp[1], positionToGrasp[2], 1])
-            positionToGrasp = np.matmul(T_arm_ref,positionToGrasp)
+            T_ref_arm = get_transform(h["ref"], h["armRef"]) # different ?
+            #positionToGrasp = np.array([positionToGrasp[0], positionToGrasp[1], positionToGrasp[2], 1]) # - because rotation of axis ?
+            positionToGrasp = np.matmul(T_ref_arm,positionToGrasp)
             print(positionToGrasp)
             center = positionToGrasp[0:3]
+            #center = np.array([0,0.36,0.2])
             # INSERT HERE THE POSITION OF THE TCP
             # Get the gripper position
             [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
