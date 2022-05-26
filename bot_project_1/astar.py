@@ -31,7 +31,7 @@ def __astar__(houseMap, goalCell):
     closed = set()
 
     # Get youbot initial state.
-    youbotPos = houseMap.bot_pos
+    youbotPos = houseMap.bot_pos_estimate
     state = houseMap.map_position_to_mat_index(youbotPos[0], youbotPos[1])
 
     # Set the fringe.

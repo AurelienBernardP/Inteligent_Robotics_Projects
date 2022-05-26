@@ -7,7 +7,7 @@ Distributed under the GNU General Public License.
 """
 # VREP
 from multiprocessing.connection import wait
-from Scene_map_v2 import manhattanDistance
+from Scene_map_v3 import manhattanDistance
 import sim as vrep
 
 # Useful import
@@ -29,7 +29,7 @@ from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
 
 
-from Scene_map_v2 import Scene_map
+from Scene_map_v3 import Scene_map
 from astar import getActions
 from astar import getAngle
 from PID_controller import PID_controller
@@ -133,7 +133,7 @@ for i in range(int(1./timestep)):
     vrep.simxGetPingTime(clientID)
 
 
-house_map = Scene_map(75,75)
+house_map = Scene_map(75,75,beacons_world_pos[:,:2])
 
 # Actions that will come from A* algo.
 actions = [('East', 0.001)]
@@ -169,7 +169,7 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
 # Start the demo. 
 intial_pos_route = (0,0)
 counter = 0
-show = True
+show = False
 forward_PID = PID_controller(timestep,3,0.8,0,True)
 rot_PID = PID_controller(timestep,3.05,0.8,0,True)
 
@@ -197,25 +197,26 @@ while True:
         # Get youbot state.
         state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
 
-        house_map.update_bot_pos((youbotPos[0],youbotPos[1]),youbotEuler[2])
+        
 
         # Get the distance from the beacons
         # Change the flag to True to constraint the range of the beacons
         beacon_dist = youbot_beacon(vrep, clientID, beacons_handle, h, flag=False)
-
+        house_map.update_bot_pos(beacon_dist,youbotEuler[2])
         # Get data from the hokuyo - return empty if data is not captured
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
        
 
+        if show == True:
+            house_map.pygame_screen_refresh(screen,intial_pos_route,actions,beacon_dist)
+            pygame.display.flip()        
+            show = False 
         if counter % 5 == 0 or counter < 5:
             #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
             house_map.update_contact_map(scanned_points,contacts)
             show = True
-        if show == 1:
-            house_map.pygame_screen_refresh(screen,intial_pos_route,actions)
-            pygame.display.flip()        
-            show = False
+
         
         
         #if counter == 550:
@@ -234,8 +235,8 @@ while True:
 
             # Set the goal state.
             cellNextToGoal = (-1,-1)
-            while cellNextToGoal == (-1,-1):
-                goalCell = house_map.frontier_cells_list[len(house_map.frontier_cells_list)-1] # take the newest frontier point
+            while cellNextToGoal == (-1,-1) and  len(house_map.frontier_cells):
+                goalCell = house_map.frontier_cells_list[-1] # take the newest frontier point
 
                 # Turn the goal state to be the fist free cell next to the goal cell.
                 for i in range(goalCell[0]-1,goalCell[0]+2,1):
