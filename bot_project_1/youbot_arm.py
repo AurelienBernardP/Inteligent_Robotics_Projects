@@ -201,7 +201,22 @@ while True:
             
             # Get the transform point cloud to ref
             T_xyz_ref = get_transform(h["xyzSensor"], h["ref"])
-            
+            '''
+                Visualisation point cloud avec PLT et open3d
+            '''
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(pts[:, 0], pts[:, 2], pts[:, 1], marker=".")
+            plt.show()
+
+            pcd = open3d.geometry.PointCloud()
+            pcd.points = open3d.utility.Vector3dVector(pts[:,:3])
+
+            pcd.estimate_normals(search_param=open3d.geometry.KDTreeSearchParamHybrid(
+                radius=0.1, max_nn=30))
+            open3d.visualization.draw_geometries([pcd],point_show_normal=True)
+
+            ##############
             positionToGrasp = np.array([np.average(pts[:][0]), np.average(pts[:][1]), np.average(pts[:][2]), 1])
 
             positionToGrasp = np.array([-0.025,-0.30,0.20,1])
