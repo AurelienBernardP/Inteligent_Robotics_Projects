@@ -14,7 +14,7 @@ import time
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from open3d import *
+import open3d
 
 from cleanup_vrep import cleanup_vrep
 from vrchk import vrchk
@@ -196,11 +196,12 @@ while True:
             
             # Get the transform point cloud to ref
             T_xyz_ref = get_transform(h["xyzSensor"], h["ref"])
-
-            positionToGrasp = np.matmul(T_xyz_ref,[np.average(pts[:][0]), np.average(pts[:][1]), np.average(pts[:][2]), np.average(pts[:][3])])
+            
+            positionToGrasp = np.array([np.average(pts[:][0]), np.average(pts[:][1]), np.average(pts[:][2]), 1])
+            #positionToGrasp = np.array([0,0,0,1])
             print(positionToGrasp)
-
-
+            positionToGrasp = np.matmul(T_xyz_ref,positionToGrasp)
+            print(positionToGrasp)
             
             # Change to rotate
             fsm = "rotate"
@@ -251,12 +252,15 @@ while True:
             # Compute arm to ref
             T_arm_ref = get_transform(h["armRef"], h["ref"])
             # Compute the grasp
+            positionToGrasp = np.array([-positionToGrasp[0], -positionToGrasp[1], positionToGrasp[2], 1])
+            positionToGrasp = np.matmul(T_arm_ref,positionToGrasp)
+            print(positionToGrasp)
+            center = positionToGrasp[0:3]
             # INSERT HERE THE POSITION OF THE TCP
             # Get the gripper position
             [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
             #vrchk(vrep, res, True)
-            center = np.array([tpos[0], tpos[1] + 0.5, tpos[2] - 0.4])
-            center = np.array([0,0,0]) # exact position of the object to grasp
+            #center = np.array([tpos[0], tpos[1] + 0.2, tpos[2] - 0.3])
             # Get the arm tip position. 
             res, tpos = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
             #vrchk(vrep, res, True)
@@ -274,17 +278,17 @@ while True:
             quats = (rot1*rot2).as_quat()
             # Send command to the robot arm
             res = vrep.simxSetObjectQuaternion(clientID, h["otarget"], h["r22"], quats, vrep.simx_opmode_oneshot)
-            res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["r22"], center, vrep.simx_opmode_oneshot)
+            res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["armRef"], center, vrep.simx_opmode_oneshot)
             vrchk(vrep, res, True)
             # Get the gripper position and check whether it is at destination (the original position).
-            [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptarget"], h["r22"], vrep.simx_opmode_buffer)
+            [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
             vrchk(vrep, res, True)
             # Get the gripper orientation and check whether it is at destination (the original position).
             [res, targetori] = vrep.simxGetObjectOrientation(clientID, h["otarget"], h["r22"], vrep.simx_opmode_buffer)
             [res, tori] = vrep.simxGetObjectOrientation(clientID, h["otip"], h["r22"], vrep.simx_opmode_buffer)
             # Check only position but orientation can be added
             cond_pos = np.linalg.norm(tpos - center) < .005
-            print(tpos)
+            print(np.linalg.norm(tpos - center))
             if cond_pos:
                 fsm = 'close_gripper'
                 print('Switching to state: ', fsm)
