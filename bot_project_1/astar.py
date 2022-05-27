@@ -139,7 +139,6 @@ def __generateYoubotSuccessors__(state, houseMap):
 
 def __convertPathToActions__(cellDistance, path):
     """Convert the path to a list of actions readable by the youbot.
-       ...
     """
 
     actions = []
@@ -177,6 +176,8 @@ def __convertPathToActions__(cellDistance, path):
 
 # Define a function to get the angle corresponding to each move.
 def getAngle(x):
+    if type(x) == float:
+        return x
     return {
             'North': -np.pi,
             'North-East': 3*np.pi/4,
@@ -186,13 +187,29 @@ def getAngle(x):
             'South-West': -np.pi/4,
             'West': -np.pi/2,
             'North-West': -3*np.pi/4,
+            
      }[x]
+
 
 def isMoveDiagonal(action):
     if action in {'North-East', 'South-East', 'South-West', 'North-West'}:
         return True 
     else:
         return False
+
+
+def getRigthLeftAngles(angle1, angle2):
+    """Get left and right angle beetwen two orientations in the map 
+       reference.
+    """
+    # Compute the value of the left and right angles.
+    if (angle1 >= angle2):
+        angleRight = 2 * np.pi - (np.pi - angle1) - (np.pi + angle2)
+    else:
+        angleRight = (np.pi - angle2) + (np.pi + angle1)
+    angleLeft = 2 * np.pi - angleRight
+
+    return angleRight, angleLeft
 
 
 

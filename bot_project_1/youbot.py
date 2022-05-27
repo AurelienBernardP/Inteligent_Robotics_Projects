@@ -32,6 +32,7 @@ from utils_sim import angdiff
 from Scene_map_v3 import Scene_map
 from astar import getActions
 from astar import getAngle
+from astar import getRigthLeftAngles
 from PID_controller import PID_controller
 
 pygame.init()
@@ -118,7 +119,8 @@ rightVel = 0  # Go sideways.
 rotateRightVel = 0  # Rotate.
 
 # First state of state machine
-fsm = 'rotate'
+rot_counter = 0
+fsm = 'rotateToTable'
 print('Switching to state: ', fsm)
 
 # Get the initial position
@@ -163,6 +165,23 @@ def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,targ
     rot_speed = 2 * angdiff(current_orientation, target_orientation)
 
     return (right_speed,up_speed,rot_speed)
+
+
+def getRotationSpeed(angle1, angle2):
+
+    angleRight, angleLeft = getRigthLeftAngles(angle1, angle2)
+            
+    # Rotate left or right (choose the best of the two move).
+    if (angleRight <= angleLeft):
+        distanceToGoal = angleRight
+        rotateRightVel = - 1/3 * distanceToGoal
+    else:
+        distanceToGoal = -angleLeft
+        rotateRightVel = 1/3 * distanceToGoal
+
+    rotateRightVel = rot_PID.control(0,distanceToGoal)
+
+    return rotateRightVel, distanceToGoal
 
 
 
@@ -231,55 +250,54 @@ while True:
 
             currActionIndex = 0
 
-            house_map.update_contact_map(scanned_points,contacts) # to remove
+            house_map.update_contact_map(scanned_points,contacts) # to remove ? 
+            
+            # Check if the map is fully explored.
+            isMapFullyExplored = house_map.frontier_cells_list == []
+            
+            # Set the goal state (if map not fully explored).
+            if not isMapFullyExplored:
+                cellNextToGoal = (-1,-1)
+                while cellNextToGoal == (-1,-1) and  len(house_map.frontier_cells):
+                    goalCell = house_map.frontier_cells_list[-1] # take the newest frontier point
 
-            # Set the goal state.
-            cellNextToGoal = (-1,-1)
-            while cellNextToGoal == (-1,-1) and  len(house_map.frontier_cells):
-                goalCell = house_map.frontier_cells_list[-1] # take the newest frontier point
+                    # Turn the goal state to be the fist free cell next to the goal cell.
+                    for i in range(goalCell[0]-1,goalCell[0]+2,1):
+                            for j in range(goalCell[1]-1,goalCell[1]+2,1):
+                                if (i,j) in house_map.free_cells and (i,j) not in house_map.padding_cells:
+                                    cellNextToGoal = (i,j)
+                    if cellNextToGoal == (-1,-1):
+                        house_map.frontier_cells.discard(goalCell)
+                        house_map.frontier_cells_list.remove(goalCell)
 
-                # Turn the goal state to be the fist free cell next to the goal cell.
-                for i in range(goalCell[0]-1,goalCell[0]+2,1):
-                        for j in range(goalCell[1]-1,goalCell[1]+2,1):
-                            if (i,j) in house_map.free_cells and (i,j) not in house_map.padding_cells:
-                                cellNextToGoal = (i,j)
-                if cellNextToGoal == (-1,-1):
-                    house_map.frontier_cells.discard(goalCell)
-                    house_map.frontier_cells_list.remove(goalCell)
+            # Set the goal state (if map is fully explored).
+            else:
+                print("coucou")
+                
+
 
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
             print("actions", actions)
 
             if len(actions) == 0:
-                house_map.frontier_cells.discard(goalCell) # use frontier_cells or list ? due to unreachable green in map ? 
+                house_map.frontier_cells.discard(goalCell)
                 house_map.frontier_cells_list.remove(goalCell)
                 fsm = 'planning'
                 print('Switching to state: ', fsm)
             else:
+                youbotFirstPos = youbotPos
                 fsm = 'rotate'
                 print('Switching to state: ', fsm)
                 intial_pos_route = (youbotPos[0],youbotPos[1])
+
 
         elif fsm == 'rotate':
             # Compute the value of the left and right angles.
             angle1 = youbotEuler[2]
             angle2 = getAngle(actions[currActionIndex][0])
-            if (angle1 >= angle2):
-                angleRight = 2 * np.pi - (np.pi - angle1) - (np.pi + angle2)
-            else:
-                angleRight = (np.pi - angle2) + (np.pi + angle1)
-            angleLeft = 2 * np.pi - angleRight
-            
-            # Rotate left or right (choose the best of the two move).
-            if (angleRight <= angleLeft):
-                distanceToGoal = angleRight
-                rotateRightVel = - 1/3 * distanceToGoal
-            else:
-                distanceToGoal = -angleLeft
-                rotateRightVel = 1/3 * distanceToGoal
 
-            rotateRightVel = rot_PID.control(0,distanceToGoal)
+            rotateRightVel, distanceToGoal = getRotationSpeed(angle1, angle2)
 
             # Stop when the robot reached the goal angle.
             if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.1:
@@ -318,8 +336,91 @@ while True:
             elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 15:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
+
+        
+        elif fsm == 'rotateToTable':
+
+            # Set table to reach (other state).
+            tableCenter = [-3,-6]
+ 
+            dx = tableCenter[0] - youbotPos[0] # use triangulation instead ! 
+            dy = tableCenter[1] - youbotPos[1]
+
+            if dx >= 0 and dy >= 0:
+                angle = np.pi/2 + abs(math.atan(dy/dx))
+            if dx >= 0 and dy <= 0:
+                angle = abs(math.atan(dx/dy))
+            if dx <= 0 and dy >= 0:
+                angle = -(np.pi/2 + abs(math.atan(dy/dx)))
+            if dx <= 0 and dy <= 0:
+                angle = -abs(math.atan(dx/dy))
+
+            angle1 = youbotEuler[2] 
+            angle2 = angle
+
+            rotateRightVel, distanceToGoal = getRotationSpeed(angle1, angle2)
+            
+            # Stop when the robot reached the goal angle.
+            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.1:
+                rotateRightVel = 0
+                fsm = 'moveToTable'
+                print('Switching to state: ', fsm)
         
 
+        elif fsm == 'moveToTable':
+
+            # Set table to reach (other state).
+            tableCenter = [-3,-6]
+
+            distanceToCenter = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2) # use triangulation !
+            distanceToGoal = distanceToCenter - 0.85
+
+            # Set the speed to reach the goal.
+            forwBackVel = forward_PID.control(0,distanceToGoal) * 0.2
+
+            # Stop when the robot reached the goal position.
+            if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.1:
+                forwBackVel = 0
+                fsm = 'circleAroundTable'
+                print('Switching to state: ', fsm)
+
+
+        elif fsm == 'circleAroundTable':
+            
+            forwBackVel = 0
+            
+            # We need to be at distance 0.850 m from table center and face it !
+            
+            # Set goal angle. Do that before (other state)
+            angle2 = -np.pi/2
+
+            # Get "table angle" from youbot angle.
+            angle1 = youbotEuler[2]
+            if angle1 <= 0:
+                angle1 = np.pi + angle1
+            else:
+                angle1 = angle1 - np.pi
+
+            # Compute the value of the left and right angles.
+            angleRight, angleLeft = getRigthLeftAngles(angle1, angle2)
+            
+            # Rotate left or right (choose the best of the two move).
+            if (angleRight <= angleLeft):
+                rotateRightVel = -0.09
+                rightVel = 0.1
+            else:
+                rotateRightVel = 0.09
+                rightVel = -0.1
+            
+            # Stop when the robot reached the goal angle.
+            distanceToGoal = abs(angle1 - angle2)
+            if distanceToGoal < .01:
+                rotateRightVel = 0
+                rightVel = 0
+                fsm = 'planning'
+                print('Switching to state: ', fsm)
+
+    
         elif fsm == 'stop':
             forwBackVel = 0  # Stop the robot.
             
