@@ -111,7 +111,7 @@ rightVel = 0  # Go sideways.
 rotateRightVel = 0  # Rotate.
 
 # First state of state machine
-fsm = 'take_shot'
+fsm = 'rotate'
 print('Switching to state: ', fsm)
 
 # Get the initial position
@@ -131,7 +131,6 @@ for i in range(int(1./timestep)):
     vrep.simxSynchronousTrigger(clientID)
     vrep.simxGetPingTime(clientID)
     
-
 
 # Start the demo. 
 while True:
@@ -185,17 +184,13 @@ while True:
             # Then retrieve the last point cloud the depth sensor took.
             # If you were to try to capture multiple images in a row, try other values than 
             # vrep.simx_opmode_oneshot_wait. 
-            print('Capturing point cloud...\n');
+            print('Capturing point cloud...\n')
             pts = youbot_xyz_sensor(vrep, h, vrep.simx_opmode_oneshot_wait)
             print(pts.shape)
             vrep.simxSynchronousTrigger(clientID)
             vrep.simxGetPingTime(clientID)
 
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            ax.scatter(pts[:, 0], pts[:, 2], pts[:, 1], marker="*")
-            fig
-            
+
             ###################################################################
             # Processing of your point cloud, depth images, etc...
             
@@ -204,18 +199,30 @@ while True:
             '''
                 Visualisation point cloud avec PLT et open3d
             '''
+            '''
             fig = plt.figure()
             ax = fig.add_subplot(111, projection='3d')
             ax.scatter(pts[:, 0], pts[:, 2], pts[:, 1], marker=".")
             plt.show()
-
+            '''
             pcd = open3d.geometry.PointCloud()
             pcd.points = open3d.utility.Vector3dVector(pts[:,:3])
 
             pcd.estimate_normals(search_param=open3d.geometry.KDTreeSearchParamHybrid(
                 radius=0.1, max_nn=30))
-            open3d.visualization.draw_geometries([pcd],point_show_normal=True)
+            #open3d.visualization.draw_geometries([pcd],point_show_normal=True)
 
+            with open3d.utility.VerbosityContextManager(
+                    open3d.utility.VerbosityLevel.Debug) as cm:
+                labels = np.array(
+                    pcd.cluster_dbscan(eps=0.02, min_points=5, print_progress=True))
+
+            max_label = labels.max()
+            print(f"point cloud has {max_label + 1} clusters")
+            colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
+            colors[labels < 0] = 0
+            pcd.colors = open3d.utility.Vector3dVector(colors[:, :3])
+            open3d.visualization.draw([pcd])
             ##############
             positionToGrasp = np.array([np.average(pts[:][0]), np.average(pts[:][1]), np.average(pts[:][2]), 1])
 
@@ -235,15 +242,15 @@ while True:
             # and the robot will correctly find its way back (e.g.: the angular speed is positive, the robot overshoots, 
             # the anguler speed becomes negative). 
             # youbotEuler(3) is the rotation around the vertical axis.              
-            rotateRightVel = angdiff(youbotEuler[2], (init_youbot_z-np.pi)) * 0.5
+            rotateRightVel = angdiff(youbotEuler[2], (-np.pi/4)) * 0.5
 
             # Stop when the robot is at an angle close to -pi/2.
-            if abs(angdiff(youbotEuler[2], (init_youbot_z-np.pi))) < .002:
+            if abs(angdiff(youbotEuler[2], (-np.pi/4))) < .002:
                 rotateRightVel = 0
                 # Turn the robot of 180°
                 T_ref1_ref2 = np.eye(4)
                 T_ref1_ref2[:3, :3] = open3d.geometry.TriangleMesh.create_coordinate_frame().get_rotation_matrix_from_xyz([0., 0., np.pi])
-                fsm = 'rotate_arm'
+                fsm = 'take_shot'
                 print('Switching to state: ', fsm)
         
         elif fsm == 'rotate_arm':
