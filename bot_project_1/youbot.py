@@ -7,6 +7,7 @@ Distributed under the GNU General Public License.
 """
 # VREP
 from multiprocessing.connection import wait
+from turtle import xcor
 from Scene_map_v3 import manhattanDistance
 import sim as vrep
 
@@ -121,7 +122,7 @@ rotateRightVel = 0  # Rotate.
 
 # First state of state machine
 rot_counter = 0
-fsm = 'rotateToTable'
+fsm = 'exploring'
 print('Switching to state: ', fsm)
 
 # Get the initial position
@@ -142,6 +143,10 @@ house_map = Scene_map(75,75,beacons_world_pos[:,:2])
 actions = [('East', 0.001)]
 currActionIndex = 0
 goalCell = (-1,-1)
+
+fsm_step = 1
+
+tableCenter = [0,0]
 
 # To track position at the beginning of a move.
 youbotFirstPos = youbotPos
@@ -184,6 +189,8 @@ def getRotationSpeed(angle1, angle2):
 
     return rotateRightVel, distanceToGoal
 
+    
+
 
 
 # Start the demo. 
@@ -215,12 +222,7 @@ while True:
         res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True) # Check the return value from the previous V-REP call (res) and exit in case of error.
         res, youbotEuler = vrep.simxGetObjectOrientation(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
-        vrchk(vrep, res, True)
-
-        # Get youbot state.
-        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
-
-        
+        vrchk(vrep, res, True)       
 
         # Get the distance from the beacons
         # Change the flag to True to constraint the range of the beacons
@@ -229,6 +231,13 @@ while True:
         # Get data from the hokuyo - return empty if data is not captured
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
+
+        # Get youbot state.
+        #state = house_map.bot_pos_estimate
+        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
+
+        # Get th youbot position given by the triangulation instead of gps (milestone 1.ii).
+        #youbotPos = 
        
 
         if show == True:
@@ -282,13 +291,65 @@ while True:
                         target_table[1] = tables[i,1]
             else :
                 print("no tables detected")
+
+
         # Apply the state machine.
-        if fsm == 'planning':
+        if fsm == 'main':
+
+            # Explore the whole map.
+            if fsm_step == 1:
+                fsm = 'exploring'
+                print('Switching to state: ', fsm)
+            
+            # Move objects from tables to tables.
+            if fsm_step == 2:
+                fsm = 'moveObject'
+                print('Switching to state: ', fsm)
+
+        
+        elif fsm == 'moveObject':
+                table1Center = [-3,-6] # "goal" cell (to be find)
+                #table2Center = [-4.5,2]
+                table2Center = [-1,-6]
+                
+                # Infinit loop (test)
+                if tableCenter == table1Center:
+                    tableCenter = table2Center
+                else:
+                    tableCenter = table1Center
+
+                tableCenterCell = house_map.map_position_to_mat_index(tableCenter[0],tableCenter[1])
+                
+                # Find a cell close to the table and the youbot.
+                closestFreeCells = set(x for x in house_map.free_cells if (manhattanDistance(x, tableCenterCell) <= 8 and x not in house_map.padding_cells))
+                def f(x):
+                    return manhattanDistance(x, state)
+                cellNextToGoal = min(closestFreeCells,key=f)
+
+                print(cellNextToGoal)
+
+                # Set actions to take.
+                currActionIndex = 0
+                actions = getActions(house_map, cellNextToGoal)
+                print("actions", actions)
+                
+                if len(actions) == 0:
+                    fsm = 'moveObject'
+                    print('Switching to state: ', fsm)
+                else:
+                    youbotFirstPos = youbotPos
+                    print(state)
+                    fsm = 'rotate'
+                    print('Switching to state: ', fsm)
+                    intial_pos_route = (youbotPos[0],youbotPos[1])
+
+
+        elif fsm == 'exploring':
 
             currActionIndex = 0
 
             house_map.update_contact_map(scanned_points,contacts) # to remove ? 
-            
+
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
             
@@ -306,23 +367,25 @@ while True:
                     if cellNextToGoal == (-1,-1):
                         house_map.frontier_cells.discard(goalCell)
                         house_map.frontier_cells_list.remove(goalCell)
-
-            # Set the goal state (if map is fully explored).
-            else:
-                print("coucou")
-                
-
-
+            
+            # Check if the map is fully explored.
+            isMapFullyExplored = house_map.frontier_cells_list == []
+            #isMapFullyExplored = True #to remove
+            
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
             print("actions", actions)
 
-            if len(actions) == 0:
+            if isMapFullyExplored:
+                fsm_step = 2
+                fsm = 'main'
+                print('Switching to state: ', fsm)
+            elif len(actions) == 0:
                 house_map.frontier_cells.discard(goalCell)
                 house_map.frontier_cells_list.remove(goalCell)
-                fsm = 'planning'
+                fsm = 'exploring'
                 print('Switching to state: ', fsm)
-            else:
+            elif len(actions) != 0:
                 youbotFirstPos = youbotPos
                 fsm = 'rotate'
                 print('Switching to state: ', fsm)
@@ -370,15 +433,12 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 15:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 20 and fsm_step == 1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
 
         
         elif fsm == 'rotateToTable':
-
-            # Set table to reach (other state).
-            tableCenter = [-3,-6]
  
             dx = tableCenter[0] - youbotPos[0] # use triangulation instead ! 
             dy = tableCenter[1] - youbotPos[1]
@@ -406,9 +466,6 @@ while True:
 
         elif fsm == 'moveToTable':
 
-            # Set table to reach (other state).
-            tableCenter = [-3,-6]
-
             distanceToCenter = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2) # use triangulation !
             distanceToGoal = distanceToCenter - 0.85
 
@@ -429,7 +486,10 @@ while True:
             # We need to be at distance 0.850 m from table center and face it !
             
             # Set goal angle. Do that before (other state)
-            angle2 = -np.pi/2
+            if tableCenter == table1Center:
+                angle2 = -np.pi/2
+            else:
+                angle2 = np.pi/4
 
             # Get "table angle" from youbot angle.
             angle1 = youbotEuler[2]
@@ -454,7 +514,7 @@ while True:
             if distanceToGoal < .01:
                 rotateRightVel = 0
                 rightVel = 0
-                fsm = 'planning'
+                fsm = 'main'
                 print('Switching to state: ', fsm)
 
     
@@ -463,14 +523,14 @@ while True:
             
             # Check if the youbot is stoped.
             if abs(youbotPos[0] - youbotFirstPos[0]) + abs(youbotPos[1] - youbotFirstPos[1]) <= .01:
-                fsm = 'planning'
-                print('Switching to state: ', fsm)
+                if fsm_step == 1:
+                    fsm = 'exploring'
+                    print('Switching to state: ', fsm)
+                if fsm_step == 2:
+                    fsm = 'rotateToTable'
+                    print('Switching to state: ', fsm)
             
             youbotFirstPos = youbotPos
-
-            if len(house_map.frontier_cells) == 0:
-                fsm = 'finished'
-                print('Switching to state: ', fsm)
 
 
         elif fsm == 'finished':
