@@ -27,7 +27,6 @@ def youbot_xyz_sensor(vrep, youbot_handle, opmode):
                                                                  youbot_handle["xyzSensor"],
                                                                  opmode)
     vrchk(vrep, res, True)
-    print(auxData[1])
     width = int(auxData[1][0])
     height = int(auxData[1][1])
     pts = np.reshape(auxData[1][2:], (width*height, 4))
