@@ -193,6 +193,9 @@ show = False
 forward_PID = PID_controller(timestep,3,0.8,0,True)
 rot_PID = PID_controller(timestep,3.05,0.8,0,True)
 tables = np.zeros((3,3))
+known_table1 = np.asarray([-3,-6])
+known_table2 = np.asarray([-1,-6])
+target_table = np.zeros(2)
 while True:
     try:
 
@@ -270,6 +273,13 @@ while True:
                     tables[i,1] = (b - (0.5*300)) * (15/300)
                     tables[i,2] = r * (15/300) 
 
+                    d1 = np.linalg.norm(known_table1.T - tables[i,:2])
+                    d2 = np.linalg.norm(known_table2.T - tables[i,:2])
+
+                    if np.linalg.norm(known_table1.T - tables[i,:2]) > 0.8 and np.linalg.norm(known_table2.T - tables[i,:2]) > 0.8 :
+                        print('found target table')
+                        target_table[0] = tables[i,0]
+                        target_table[1] = tables[i,1]
             else :
                 print("no tables detected")
         # Apply the state machine.
