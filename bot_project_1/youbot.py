@@ -29,6 +29,7 @@ from youbot_xyz_sensor import youbot_xyz_sensor
 from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
 
+import cv2 as cv
 
 from Scene_map_v3 import Scene_map
 from astar import getActions
@@ -198,7 +199,10 @@ counter = 0
 show = False
 forward_PID = PID_controller(timestep,3,0.8,0,True)
 rot_PID = PID_controller(timestep,3.05,0.8,0,True)
-
+tables = np.zeros((3,3))
+known_table1 = np.asarray([-3,-6])
+known_table2 = np.asarray([-1,-6])
+target_table = np.zeros(2)
 while True:
     try:
 
@@ -236,8 +240,14 @@ while True:
 
         if show == True:
             house_map.pygame_screen_refresh(screen,intial_pos_route,actions,beacon_dist)
+            for i in range(np.shape(tables)[0]):
+                x_screen_size, y_screen_size = screen.get_size()
+                x = (tables[i,0] + (15 / 2)) * (x_screen_size/15)
+                y = y_screen_size - ((tables[i,1] + (15 / 2)) * (y_screen_size/15))
+                radius = tables[i,2] * (x_screen_size/15)
+                pygame.draw.circle(screen, (255, 0, 0), (x,y), radius)
             pygame.display.flip()        
-            show = False 
+            show = False
         if counter % 5 == 0 or counter < 5:
             #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
             house_map.update_contact_map(scanned_points,contacts)
@@ -251,7 +261,34 @@ while True:
         
         #print(counter,end='\r')
         counter +=1
-        
+        if fsm == 'detect_tables' or (counter % 250 == 0):
+
+            img = np.copy(house_map.obstacle_cells_grid)
+            img = (img + 1) % 2
+            img *= 255
+            img = np.uint8(img)
+            img = cv.blur(img, (3, 3))
+            circles = cv.HoughCircles(img, cv.HOUGH_GRADIENT, 1, 7,
+                            param1=50, param2=10,
+                            minRadius=8, maxRadius=9)
+            if circles is not None:
+                circles = np.uint16(np.around(circles))
+
+                for i,pt in enumerate(circles[0, :]):
+                    a, b, r = pt[0], pt[1], pt[2]
+                    tables[i,0] = (a - (0.5*300)) * (15/300)
+                    tables[i,1] = (b - (0.5*300)) * (15/300)
+                    tables[i,2] = r * (15/300) 
+
+                    d1 = np.linalg.norm(known_table1.T - tables[i,:2])
+                    d2 = np.linalg.norm(known_table2.T - tables[i,:2])
+
+                    if np.linalg.norm(known_table1.T - tables[i,:2]) > 0.8 and np.linalg.norm(known_table2.T - tables[i,:2]) > 0.8 :
+                        print('found target table')
+                        target_table[0] = tables[i,0]
+                        target_table[1] = tables[i,1]
+            else :
+                print("no tables detected")
         # Apply the state machine.
         if fsm == 'main':
 

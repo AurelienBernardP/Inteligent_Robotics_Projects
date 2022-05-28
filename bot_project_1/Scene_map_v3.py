@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import pygame
+
 from scipy.optimize import minimize
 
 class Scene_map :
@@ -13,6 +14,7 @@ class Scene_map :
     FRONTIER = 5
     PADDING = 6
     ROUTE = 7
+    TABLE = 8
 
     PALLET = np.array([[112, 128, 144],   # unexplored - grey
                        [255,   0,   0],   # obstacle - red
@@ -21,7 +23,8 @@ class Scene_map :
                        [255, 255,   0],   # ray - yellow
                        [255,   0, 255],   # frontier - pink
                        [255, 215,   0],   # Padding - orange
-                       [0  ,   0,   0]])  # Route - black
+                       [0  ,   0,   0],   # Route - black
+                       [0  ,   0,   0]])  # possible table ) white
 
 
     def __init__(self, width, height,beacons):
@@ -43,6 +46,7 @@ class Scene_map :
 
         self.free_cells = set()
         self.obstacle_cells = set()
+        self.obstacle_cells_grid = np.zeros((300,300),dtype= np.int8)
         self.padding_cells = set()
 
         self.explored_cells = set()
@@ -88,14 +92,21 @@ class Scene_map :
         c, s = np.cos(self.bot_orientation), np.sin(self.bot_orientation)
         R = np.array(((c, -s), (s, c)))
 
-        ray_step = 4
-        for i in range(0,np.shape(self.ray_endings)[1],ray_step):
+        ray_step = 8
+        for i in range(0,np.shape(self.ray_endings)[1]):
 
             new_ray_coordinates = np.dot(R,(self.ray_endings[0,i],self.ray_endings[1,i]))
-
+            ray_len = np.sqrt( np.dot(self.ray_endings[:,i].T, self.ray_endings[:,i]))
             #ray ending coordinate in metric
             self.ray_endings[0,i] = self.bot_pos_estimate[0] + new_ray_coordinates[0]
             self.ray_endings[1,i] = self.bot_pos_estimate[1] + new_ray_coordinates[1]
+
+            if i % ray_step != 0:
+                if self.ray_hit[i]:
+                    ray_x,ray_y = self.map_position_to_mat_index_aux(self.ray_endings[0,i],self.ray_endings[1,i],300,300)
+                    self.obstacle_cells_grid[ray_x,ray_y] = 1
+
+                continue 
 
             #get the matrix position of the elements of interest
             ray_x,ray_y = self.map_position_to_mat_index(self.ray_endings[0,i],self.ray_endings[1,i])
@@ -107,10 +118,9 @@ class Scene_map :
                 self.free_cells.discard((ray_x,ray_y))
 
                 if (ray_x,ray_y) in self.frontier_cells:
-                    self.frontier_cells.remove((ray_x,ray_y))
+                    self.frontier_cells.discard((ray_x,ray_y))
                     self.frontier_cells_list.remove((ray_x,ray_y))
 
-                
             elif((ray_x,ray_y) not in self.explored_cells and  (ray_x,ray_y) not in self.frontier_cells):
                 self.frontier_cells.add((ray_x,ray_y))
                 self.frontier_cells_list.append((ray_x,ray_y))
@@ -151,23 +161,26 @@ class Scene_map :
             cell = (cell[1],cell[0])
             pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.FREE], self.index_to_screen_position(x_screen_size,y_screen_size,cell[0],cell[1]),circle_size )
         
+
+        surface = pygame.Surface((x_screen_size,y_screen_size), pygame.SRCALPHA)
         for cell in self.frontier_cells:
             cell = (cell[1],cell[0])
-            pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.FRONTIER], self.index_to_screen_position(x_screen_size,y_screen_size,cell[0],cell[1]),circle_size )
+            pygame.draw.circle(surface, np.append(Scene_map.PALLET[Scene_map.FRONTIER],200), self.index_to_screen_position(x_screen_size,y_screen_size,cell[0],cell[1]),circle_size )
         
-        surface = pygame.Surface((x_screen_size,y_screen_size), pygame.SRCALPHA)
+        
         for cell in self.padding_cells:
             cell = (cell[1],cell[0])
             pygame.draw.circle(surface, np.append(Scene_map.PALLET[Scene_map.PADDING],200), self.index_to_screen_position(x_screen_size,y_screen_size,cell[0],cell[1]),circle_size )
+        
         for beacon,d in zip(self.beacons_pos,dists):
-
             pygame.draw.circle(surface, np.append(Scene_map.PALLET[self.BOT],70),self.get_screen_pos_from_map_coordinates(screen,beacon), d*distance_ration,3)
+        
         screen.blit(surface, (0,0))
         
         for cell in self.obstacle_cells:
             cell = (cell[1],cell[0])
             pygame.draw.circle(screen, Scene_map.PALLET[Scene_map.OBSTACLE], self.index_to_screen_position(x_screen_size,y_screen_size,cell[0],cell[1]),circle_size )
-
+        
 
         #draw rays
         for i in range(0,np.shape(self.ray_endings)[1],16):
@@ -217,6 +230,14 @@ class Scene_map :
 
         return
 
+    def index_to_screen_position_aux(self,screen_width,screen_height,grid_w,grid_h,x,y):
+
+        cell_width = screen_width/grid_w
+        cell_height = screen_height/grid_h
+        #y axis is flipped so to get the y at the correct position we have to flip it again by doing y = y_size - pos
+        return (int(x * cell_width),screen_height - int( y * cell_height))
+
+
     def index_to_screen_position(self,screen_width,screen_height,x,y):
 
         cell_width = screen_width/self.map_size[0]
@@ -224,7 +245,11 @@ class Scene_map :
         #y axis is flipped so to get the y at the correct position we have to flip it again by doing y = y_size - pos
         return (int(x * cell_width),screen_height - int( y * cell_height))
 
-    
+    def map_position_to_mat_index_aux(self,x,y,size_x,size_y):
+        cells_per_meter_y = size_y // self.real_room_size[1]
+        cells_per_meter_x = size_x // self.real_room_size[0] 
+        return np.minimum(int(y*cells_per_meter_y + size_y/2), size_y-1),np.minimum(int(x*cells_per_meter_x + size_x/2),size_x-1)
+
     def map_position_to_mat_index(self,x,y):
 
         cells_per_meter_y = self.map_size[1] // self.real_room_size[1]
@@ -330,4 +355,3 @@ def line_generation(x0,y0,x1, y1):
         D += 2*dy
          
     return cells
-
