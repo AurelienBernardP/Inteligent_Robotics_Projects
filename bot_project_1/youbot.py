@@ -222,12 +222,7 @@ while True:
         res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True) # Check the return value from the previous V-REP call (res) and exit in case of error.
         res, youbotEuler = vrep.simxGetObjectOrientation(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
-        vrchk(vrep, res, True)
-
-        # Get youbot state.
-        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
-
-        
+        vrchk(vrep, res, True)       
 
         # Get the distance from the beacons
         # Change the flag to True to constraint the range of the beacons
@@ -236,6 +231,13 @@ while True:
         # Get data from the hokuyo - return empty if data is not captured
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
+
+        # Get youbot state.
+        #state = house_map.bot_pos_estimate
+        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
+
+        # Get th youbot position given by the triangulation instead of gps (milestone 1.ii).
+        #youbotPos = 
        
 
         if show == True:
@@ -289,6 +291,8 @@ while True:
                         target_table[1] = tables[i,1]
             else :
                 print("no tables detected")
+
+
         # Apply the state machine.
         if fsm == 'main':
 
@@ -315,12 +319,11 @@ while True:
                     tableCenter = table1Center
 
                 tableCenterCell = house_map.map_position_to_mat_index(tableCenter[0],tableCenter[1])
-                youbotPosCell = house_map.map_position_to_mat_index(youbotPos[0],youbotPos[1])
                 
                 # Find a cell close to the table and the youbot.
                 closestFreeCells = set(x for x in house_map.free_cells if (manhattanDistance(x, tableCenterCell) <= 8 and x not in house_map.padding_cells))
                 def f(x):
-                    return manhattanDistance(x, youbotPosCell)
+                    return manhattanDistance(x, state)
                 cellNextToGoal = min(closestFreeCells,key=f)
 
                 print(cellNextToGoal)
@@ -335,7 +338,7 @@ while True:
                     print('Switching to state: ', fsm)
                 else:
                     youbotFirstPos = youbotPos
-                    print(youbotPosCell)
+                    print(state)
                     fsm = 'rotate'
                     print('Switching to state: ', fsm)
                     intial_pos_route = (youbotPos[0],youbotPos[1])
@@ -430,7 +433,7 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 15:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 20 and fsm_step == 1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
 
@@ -528,10 +531,6 @@ while True:
                     print('Switching to state: ', fsm)
             
             youbotFirstPos = youbotPos
-
-            if len(house_map.frontier_cells) == 0:
-                fsm = 'finished'
-                print('Switching to state: ', fsm)
 
 
         elif fsm == 'finished':
