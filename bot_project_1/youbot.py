@@ -551,7 +551,7 @@ while True:
             
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
-            isMapFullyExplored = True #to remove
+            #isMapFullyExplored = True #to remove
             
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
@@ -614,7 +614,7 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10 and fsm_step == 1:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 15 and fsm_step == 1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
 
@@ -677,7 +677,7 @@ while True:
                 status, target_orientation, target_clamp_pos = find_objects()
             
             if status == 0: # quid if no more objects on table ? 
-                angleOfObject = target_orientation # good angle directly ? reference ?
+                angleOfObject = np.pi # good angle directly ? reference ?
                 centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
                 rotateRightVel = 0
                 rightVel = 0
@@ -716,25 +716,23 @@ while True:
             if distanceToGoal < .01:
                 rotateRightVel = 0
                 rightVel = 0
-                fsm = 'halfTurn'
+                fsm = 'rotateToObjectFront'
                 print('Switching to state: ', fsm)
             
 
-        elif fsm == 'halfTurn':
+        elif fsm == 'rotateToObjectFront':
 
-            #need to set "arg" youbotFirstEuler first !
-            if youbotFirstEuler == -1:
-                youbotFirstEuler = youbotEuler
-
+            # Compute the value of the left and right angles.
             angle1 = youbotEuler[2]
 
-            if youbotFirstEuler[2] < 0:
-                angle2 = youbotFirstEuler[2] + np.pi
+            # Get angle to have back of the youbot in front of the object.
+            if target_orientation <= 0:
+                angle2 = np.pi + target_orientation
             else:
-                angle2 = youbotFirstEuler[2] - np.pi
+                angle2 = target_orientation - np.pi
 
             rotateRightVel, distanceToGoal = getRotationSpeed(angle1, angle2)
-            
+
             # Stop when the robot reached the goal angle.
             if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.1:
                 rotateRightVel = 0

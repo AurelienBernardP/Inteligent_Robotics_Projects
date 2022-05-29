@@ -1,30 +1,94 @@
-## implementation inspired from my last year IA course project implementation
-## add credit !
+"""
+# Astar algorithm implementation and sub functions.
+
+"""
 
 from queue import PriorityQueue
-
 import numpy as np
 import math
 
 from Scene_map_v2 import manhattanDistance
 
+
 def getActions(houseMap, goalCell):
+    """
+    Get a sequence of actions for the youbot to perform in order to move
+    to the goal cell. For exemple, a sequence of actions can be 
+    ('North',3),('Sud',2),('North',5).
 
+    Parameters
+    ----------
+    -houseMap: (scene_map) the state of the map where the robot is located.
+    -goalCell: ([int,int]) the goal cell to reach. 
+
+    Return
+    ------
+    -actions: the sequence of actions.
+    """
+    # Compute the path to reach the goal.
     path = __astar__(houseMap, goalCell)
-
     if (len(path) == 0):
         return []
 
     # Compute the distance beetwen two adjacent cells in the map.
     cellDistance = houseMap.real_room_size[0] / houseMap.map_size[0]
-
+    
+    # Convert the path to a list of actions readable by the youbot.
     actions = __convertPathToActions__(cellDistance, path)
 
     return actions
 
 
-def __astar__(houseMap, goalCell):
 
+def getAngle(x):
+    """
+    Define a function to get the angle corresponding to each move.
+    """
+    if type(x) == float:
+        return x
+    return {
+            'North': -np.pi,
+            'North-East': 3*np.pi/4,
+            'East': np.pi/2,
+            'South-East': np.pi/4,
+            'South': 0,
+            'South-West': -np.pi/4,
+            'West': -np.pi/2,
+            'North-West': -3*np.pi/4,
+            
+     }[x]
+
+
+def isMoveDiagonal(action):
+    """
+    Define a function to check if a move is a diagonal move.
+    """
+    if action in {'North-East', 'South-East', 'South-West', 'North-West'}:
+        return True 
+    else:
+        return False
+
+
+def getRigthLeftAngles(angle1, angle2):
+    """
+    Get left and right angle beetwen two orientations in the map 
+    reference.
+    """
+    # Compute the value of the left and right angles.
+    if (angle1 >= angle2):
+        angleRight = 2 * np.pi - (np.pi - angle1) - (np.pi + angle2)
+    else:
+        angleRight = (np.pi - angle2) + (np.pi + angle1)
+    angleLeft = 2 * np.pi - angleRight
+
+    return angleRight, angleLeft
+
+
+def __astar__(houseMap, goalCell):
+    '''
+    implementation of the A* algorithm. Inspired from our last year IA course 
+    project implementation.
+    '''
     # Set the variables.
     path = []
     pathCost = 0
@@ -64,19 +128,26 @@ def __astar__(houseMap, goalCell):
 
 
 def __heuristic__(state, goalState):
-    #return manhattanDistance(state, goalState)
-    return math.sqrt((state[0] - goalState[0])**2 + (state[1] - goalState[1])**2) # or manatthan ?
+    return manhattanDistance(state, goalState)
+    #return math.sqrt((state[0] - goalState[0])**2 + (state[1] - goalState[1])**2) # the best ?
 
 
 def __costFunction__(state, action, path, houseMap):
-    cost = 0
-    cost += 1 # time
 
+    cost = 0
+
+    # Add cost for time.
+    cost += 1
+    
+    # Add cost for diagonal move.
     if isMoveDiagonal(action):
         cost += 5 - 1 # better math.sqrt(2) ?
-
+    
+    # Add cost for rotation.
     if len(path) != 0 and action != path[len(path)-1]:
         cost += 500
+    
+    # Add cost for padding 
     if state in houseMap.padding_cells:
         cost += 100000
     
@@ -138,8 +209,6 @@ def __generateYoubotSuccessors__(state, houseMap):
 
 
 def __convertPathToActions__(cellDistance, path):
-    """Convert the path to a list of actions readable by the youbot.
-    """
 
     actions = []
     
@@ -174,52 +243,7 @@ def __convertPathToActions__(cellDistance, path):
     return actions
 
 
-# Define a function to get the angle corresponding to each move.
-def getAngle(x):
-    if type(x) == float:
-        return x
-    return {
-            'North': -np.pi,
-            'North-East': 3*np.pi/4,
-            'East': np.pi/2,
-            'South-East': np.pi/4,
-            'South': 0,
-            'South-West': -np.pi/4,
-            'West': -np.pi/2,
-            'North-West': -3*np.pi/4,
-            
-     }[x]
-
-
-def isMoveDiagonal(action):
-    if action in {'North-East', 'South-East', 'South-West', 'North-West'}:
-        return True 
-    else:
-        return False
-
-
-def getRigthLeftAngles(angle1, angle2):
-    """Get left and right angle beetwen two orientations in the map 
-       reference.
-    """
-    # Compute the value of the left and right angles.
-    if (angle1 >= angle2):
-        angleRight = 2 * np.pi - (np.pi - angle1) - (np.pi + angle2)
-    else:
-        angleRight = (np.pi - angle2) + (np.pi + angle1)
-    angleLeft = 2 * np.pi - angleRight
-
-    return angleRight, angleLeft
 
 
 
-'''
-print(isMoveDiagonal('South-East'))
-
-
-path = ['North', 'East', 'North', 'West', 'West', 'West', 'West', 'West', 'South-East', 'South-East', 'South-East', 'South', 'South', 'North']
-
-
-print(__convertPathToActions__(0.1, path))
-'''
 
