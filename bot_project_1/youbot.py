@@ -28,6 +28,7 @@ from youbot_hokuyo import youbot_hokuyo
 from youbot_xyz_sensor import youbot_xyz_sensor
 from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
+from scipy.spatial.transform import Rotation as R
 
 
 import open3d
@@ -38,6 +39,7 @@ from astar import getActions
 from astar import getAngle
 from astar import getRigthLeftAngles
 from PID_controller import PID_controller
+#from youbot_arm import get_transform
 
 def get_transform(handle1, handle2):
     """Return the transform matrix (4x4)."""
@@ -136,13 +138,17 @@ rotateRightVel = 0  # Rotate.
 
 # First state of state machine
 rot_counter = 0
-fsm = 'exploring'
+fsm = 'main'
 print('Switching to state: ', fsm)
 
 # Get the initial position
 res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_buffer)
 # Set the speed of the wheels to 0.
 h = youbot_drive(vrep, h, forwBackVel, rightVel, rotateRightVel)
+# Get the target orientation
+[res, targetori] = vrep.simxGetObjectOrientation(clientID, h["otarget"], h["r22"], vrep.simx_opmode_oneshot_wait)
+# Get the gripper orientation
+[res, tori] = vrep.simxGetObjectOrientation(clientID, h["otip"], h["r22"], vrep.simx_opmode_oneshot_wait)
 
 # Send a Trigger to the simulator: this will run a time step for the physic engine
 # because of the synchronous mode. Run several iterations to stabilize the simulation.
@@ -351,6 +357,10 @@ tables = np.zeros((3,3))
 known_table1 = np.asarray([-3,-6])
 known_table2 = np.asarray([-1,-6])
 target_table = np.zeros(2)
+target_table = [-1, -6] # to remove
+youbotFirstEuler = -1
+gripperState = 1
+
 while True:
     try:
 
@@ -367,8 +377,8 @@ while True:
             sys.exit('Lost connection to remote API.')
 
         # Get the position and the orientation of the robot.
-        res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
-        vrchk(vrep, res, True) # Check the return value from the previous V-REP call (res) and exit in case of error.
+        #res, youbotPos = vrep.simxGetObjectPosition(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
+        #vrchk(vrep, res, True) # Check the return value from the previous V-REP call (res) and exit in case of error.
         res, youbotEuler = vrep.simxGetObjectOrientation(clientID, h['ref'], -1, vrep.simx_opmode_streaming)
         vrchk(vrep, res, True)       
 
@@ -379,13 +389,13 @@ while True:
         # Get data from the hokuyo - return empty if data is not captured
         scanned_points, contacts = youbot_hokuyo(vrep, h, vrep.simx_opmode_buffer)
         vrchk(vrep, res)
-
-        # Get youbot state.
-        #state = house_map.bot_pos_estimate
-        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
+        
 
         # Get th youbot position given by the triangulation instead of gps (milestone 1.ii).
-        #youbotPos = 
+        youbotPos = house_map.bot_pos_estimate
+
+        # Get youbot state.
+        state = house_map.map_position_to_mat_index(youbotPos[0], youbotPos[1])
        
 
         if show == True:
@@ -436,6 +446,7 @@ while True:
                         print('found target table')
                         target_table[0] = tables[i,0]
                         target_table[1] = tables[i,1]
+                    print(target_table)
             else :
                 print("no tables detected")
 
@@ -455,15 +466,18 @@ while True:
 
         
         elif fsm == 'moveObject':
-                table1Center = [-3,-6] # "goal" cell (to be find)
-                #table2Center = [-4.5,2]
-                table2Center = [-1,-6]
+
+                # test (to replace by point cloud processing)
+                angleOfObject = np.pi
+                centerOfObject = np.array([-0.02, 0.37, 0.26])
                 
                 # Infinit loop (test)
-                if tableCenter == table1Center:
-                    tableCenter = table2Center
+                print(tableCenter)
+                print(known_table1)
+                if (tableCenter == known_table1).all():
+                    tableCenter = target_table
                 else:
-                    tableCenter = table1Center
+                    tableCenter = known_table1
 
                 tableCenterCell = house_map.map_position_to_mat_index(tableCenter[0],tableCenter[1])
                 
@@ -516,7 +530,7 @@ while True:
             
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
-            #isMapFullyExplored = True #to remove
+            isMapFullyExplored = True #to remove
             
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
@@ -579,14 +593,14 @@ while True:
                     print('Switching to state: ', fsm)
             
             # Stop if we explored the goal cell and we are close.
-            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 20 and fsm_step == 1:
+            elif goalCell not in house_map.frontier_cells and manhattanDistance(goalCell, state) < 10 and fsm_step == 1:
                 fsm = 'stop'
                 print('Switching to state: ', fsm)
 
         
         elif fsm == 'rotateToTable':
  
-            dx = tableCenter[0] - youbotPos[0] # use triangulation instead ! 
+            dx = tableCenter[0] - youbotPos[0]
             dy = tableCenter[1] - youbotPos[1]
 
             if dx >= 0 and dy >= 0:
@@ -632,11 +646,8 @@ while True:
             
             # We need to be at distance 0.850 m from table center and face it !
             
-            # Set goal angle. Do that before (other state)
-            if tableCenter == table1Center:
-                angle2 = -np.pi/2
-            else:
-                angle2 = np.pi/4
+            # Set the goal angle.
+            angle2 = angleOfObject
 
             # Get "table angle" from youbot angle.
             angle1 = youbotEuler[2]
@@ -661,8 +672,146 @@ while True:
             if distanceToGoal < .01:
                 rotateRightVel = 0
                 rightVel = 0
+                fsm = 'halfTurn'
+                print('Switching to state: ', fsm)
+            
+
+        elif fsm == 'halfTurn':
+
+            #need to set "arg" youbotFirstEuler first !
+            if youbotFirstEuler == -1:
+                youbotFirstEuler = youbotEuler
+
+            angle1 = youbotEuler[2]
+
+            if youbotFirstEuler[2] < 0:
+                angle2 = youbotFirstEuler[2] + np.pi
+            else:
+                angle2 = youbotFirstEuler[2] - np.pi
+
+            rotateRightVel, distanceToGoal = getRotationSpeed(angle1, angle2)
+            
+            # Stop when the robot reached the goal angle.
+            if abs(distanceToGoal) < .01 and abs(rotateRightVel) < 0.1:
+                rotateRightVel = 0
+                fsm = 'deployArm'
+                print('Switching to state: ', fsm)
+
+        
+        # Need to be dynamic
+        elif fsm == 'deployArm':
+
+            targetJoint = [np.pi, -np.pi/4, 0., 0.]
+
+            # Rotate the arm
+            # Joint 0        
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][0], targetJoint[0], vrep.simx_opmode_oneshot)            
+            res, joint_0 = vrep.simxGetJointPosition(clientID, h["armJoints"][0], vrep.simx_opmode_buffer)
+            # Joint 1        
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][1], targetJoint[1], vrep.simx_opmode_oneshot)            
+            res, joint_1 = vrep.simxGetJointPosition(clientID, h["armJoints"][1], vrep.simx_opmode_buffer)
+            # Joint 3
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][3], targetJoint[3], vrep.simx_opmode_oneshot)            
+            res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
+            # Stop when the robot is at an angle close to target.
+            cond0 = abs(angdiff(joint_0, targetJoint[0])) < .001
+            cond1 = abs(angdiff(joint_1, targetJoint[1])) < .001
+            cond3 = abs(angdiff(joint_3, targetJoint[3])) < .001
+            
+            if cond0 & cond1 & cond3:
+                res = vrep.simxSetIntegerSignal(clientID, 'km_mode', 2, vrep.simx_opmode_oneshot_wait)
+                fsm = 'moveArm'
+                print('Switching to state: ', fsm)
+
+            
+        elif fsm == 'moveArm':
+
+            # Transform for the arm orientation
+            rot1 = R.from_quat([0., np.sin(-3/8*np.pi), 0., np.cos(-3/8*np.pi)])
+            rot2 = R.from_quat([np.sin(-np.pi/4), 0., 0., np.cos(-np.pi/4)])
+            quats = (rot1*rot2).as_quat()
+            # Send command to the robot arm
+            res = vrep.simxSetObjectQuaternion(clientID, h["otarget"], h["r22"], quats, vrep.simx_opmode_oneshot)
+            res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["armRef"], centerOfObject, vrep.simx_opmode_oneshot)
+            vrchk(vrep, res, True)
+            # Get the gripper position and check whether it is at destination (the original position).
+            [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
+            vrchk(vrep, res, True)
+            # Get the gripper orientation and check whether it is at destination (the original position).
+            [res, targetori] = vrep.simxGetObjectOrientation(clientID, h["otarget"], h["r22"], vrep.simx_opmode_buffer)
+            [res, tori] = vrep.simxGetObjectOrientation(clientID, h["otip"], h["r22"], vrep.simx_opmode_buffer)
+            # Check only position but orientation can be added
+            cond_pos = np.linalg.norm(tpos - centerOfObject) < .005
+            print(np.linalg.norm(tpos - centerOfObject))
+
+            # Close the gripper if we must grab an object and open it if we must drop it.
+            if cond_pos:
+                fsm = 'activateGripper'
+                print('Switching to state: ', fsm)
+                time_to_close = time.time()
+
+        
+        elif fsm == 'activateGripper':
+            
+            # Open or close the gripper.
+            if gripperState == 1:
+                close = 0
+            else:
+                close = 1
+            
+            res = vrep.simxSetIntegerSignal(clientID, 'gripper_open', close, vrep.simx_opmode_oneshot_wait);
+            #vrchk(vrep, res)
+            
+            if time.time()-time_to_close > 3.:
+                gripperState = close
+                fsm = 'liftUp'
+                ######### BE CAREFUL #############
+                # Don't forget to send a signal to move the robot arm in the forward mode !
+                res = vrep.simxSetIntegerSignal(clientID, 'km_mode', 0, vrep.simx_opmode_oneshot_wait)
+                #vrchk(vrep, res, True)
+                print('Switching to state: ', fsm)
+
+                
+        elif fsm == "liftUp":
+            # Joint 3
+            target_joint_3 = -np.pi/2
+            joint_index = 3
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][joint_index], target_joint_3, vrep.simx_opmode_oneshot)            
+            res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][joint_index], vrep.simx_opmode_buffer)
+            # Condition
+            cond = abs(angdiff(joint_3, target_joint_3)) < .001
+            if cond:
+                fsm = "storeArm"
+                print('Switching to state: ', fsm)
+
+        
+       # Need to be dynamic
+        elif fsm == 'storeArm':
+
+            targetJoint = [0, 0, 0., 0]
+            
+            # Rotate the arm
+            # Joint 0        
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][0], targetJoint[0], vrep.simx_opmode_oneshot)            
+            res, joint_0 = vrep.simxGetJointPosition(clientID, h["armJoints"][0], vrep.simx_opmode_buffer)
+            # Joint 1        
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][1], targetJoint[1], vrep.simx_opmode_oneshot)            
+            res, joint_1 = vrep.simxGetJointPosition(clientID, h["armJoints"][1], vrep.simx_opmode_buffer)
+            # Joint 3
+            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][3], targetJoint[3], vrep.simx_opmode_oneshot)            
+            res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
+            # Stop when the robot is at an angle close to target.
+            cond0 = abs(angdiff(joint_0, targetJoint[0])) < .001
+            cond1 = abs(angdiff(joint_1, targetJoint[1])) < .001
+            cond3 = abs(angdiff(joint_3, targetJoint[3])) < .001
+            
+            if cond0 & cond1 & cond3:
                 fsm = 'main'
                 print('Switching to state: ', fsm)
+        
+
+
+
 
     
         elif fsm == 'stop':
