@@ -30,6 +30,8 @@ from beacon import beacon_init, youbot_beacon
 from utils_sim import angdiff
 from scipy.spatial.transform import Rotation as R
 
+
+import open3d
 import cv2 as cv
 
 from Scene_map_v3 import Scene_map
@@ -39,9 +41,21 @@ from astar import getRigthLeftAngles
 from PID_controller import PID_controller
 #from youbot_arm import get_transform
 
+def get_transform(handle1, handle2):
+    """Return the transform matrix (4x4)."""
+    res, pos = vrep.simxGetObjectPosition(clientID, handle1, handle2, vrep.simx_opmode_oneshot_wait)
+    vrchk(vrep, res, True)
+    res, euler_angles = vrep.simxGetObjectOrientation(clientID, handle1, handle2, vrep.simx_opmode_oneshot_wait)
+    vrchk(vrep, res, True)
+    T = np.eye(4)
+    T[:3, :3] = open3d.geometry.TriangleMesh.create_coordinate_frame().get_rotation_matrix_from_xyz(euler_angles)
+    T[:3, 3] = np.array(pos).T
+    
+    return T
+
+
 pygame.init()
 screen = pygame.display.set_mode([700, 700])
-
 
 # Test the python implementation of a youbot
 # Initiate the connection to the simulator.
@@ -213,8 +227,145 @@ def setArmJoints(targetJoint):
     res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
 
     return joint_0, joint_1, joint_3
+    
 
+    
+def find_objects():
 
+    # Read data from the depth camera (Hokuyo)
+    # Reading a 3D image costs a lot to VREP (it has to simulate the image). It also requires a lot of 
+    # bandwidth, and processing a 3D point cloud (for instance, to find one of the boxes or cylinders that 
+    # the robot has to grasp) will take a long time in MATLAB. In general, you will only want to capture a 3D 
+    # image at specific times, for instance when you believe you're facing one of the tables.
+    
+    # Reduce the view angle to pi/8 in order to better see the objects. Do it only once. 
+    # ^^^^^^     ^^^^^^^^^^    ^^^^                                     ^^^^^^^^^^^^^^^ 
+    # simxSetFloatSignal                                                simx_opmode_oneshot_wait
+    #            |
+    #            rgbd_sensor_scan_angle
+    # The depth camera has a limited number of rays that gather information. If this number is concentrated 
+    # on a smaller angle, the resolution is better. pi/8 has been determined by experimentation. 
+    res = vrep.simxSetFloatSignal(clientID, 'rgbd_sensor_scan_angle', np.pi/8, vrep.simx_opmode_oneshot_wait)
+    vrchk(vrep, res) # Check the return value from the previous V-REP call (res) and exit in case of error.
+    
+    # Ask the sensor to turn itself on, take A SINGLE POINT CLOUD, and turn itself off again. 
+    # ^^^     ^^^^^^                ^^       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    # simxSetIntegerSignal          1        simx_opmode_oneshot_wait
+    #         |
+    #         handle_xyz_sensor
+    res = vrep.simxSetIntegerSignal(clientID, 'handle_xyz_sensor', 1, vrep.simx_opmode_oneshot_wait)
+    #vrchk(vrep, res)
+    
+    ################# BE CAREFUL #################
+    # For some reasons, the vrep call can return None. In this case, you can safetly ignore the verification 'vrchk'
+    
+    vrep.simxSynchronousTrigger(clientID)
+    vrep.simxGetPingTime(clientID)
+    
+    # Simulation with capturing raw point cloud.
+    # Then retrieve the last point cloud the depth sensor took.
+    # If you were to try to capture multiple images in a row, try other values than 
+    # vrep.simx_opmode_oneshot_wait. 
+    print('Capturing point cloud...\n')
+    pts = youbot_xyz_sensor(vrep, h, vrep.simx_opmode_oneshot_wait)
+    vrep.simxSynchronousTrigger(clientID)
+    vrep.simxGetPingTime(clientID)
+
+    ###################################################################
+    # Processing of your point cloud, depth images, etc...
+    
+    #1) remove points that are too far. further than 1.5 m away is no useful
+    to_remove = []
+    for i in range(np.shape(pts)[0]):
+        
+            if pts[i,3] > 1.5:
+                to_remove.append(i)
+    pts = np.delete(pts,to_remove,axis = 0)
+
+    pcd = open3d.geometry.PointCloud()
+    pcd.points = open3d.utility.Vector3dVector(pts[:,:3])
+
+    pts = np.asarray(pcd.points)
+
+    #2) TRANSFORM POINTS TO REFERENCE FRAME COORDS
+    T_xyz_ref = get_transform(h["xyzSensor"], h["ref"])
+
+    for i in range(np.shape(pts)[0]):
+        pts[i,:] = T_xyz_ref.dot(np.append(pts[i,:],1) )[:3]
+
+    #3) remove points below the table top
+    to_remove = []
+    for i in range(np.shape(np.asarray(pcd.points))[0]):
+        if abs(pts[i,2]) < 0.0925:
+            to_remove.append(i)
+    pts = np.delete(pts,to_remove,axis = 0)
+
+    pcd = open3d.geometry.PointCloud()
+    pcd.points = open3d.utility.Vector3dVector(pts[:,:3])
+
+    # 3) Point cloud segmentation in case there are various elements
+
+    if np.shape(np.asarray(pcd.points))[0] > 0 :
+        with open3d.utility.VerbosityContextManager(
+                open3d.utility.VerbosityLevel.Debug) as cm:
+            labels = np.array(
+                pcd.cluster_dbscan(eps=0.05, min_points=20, print_progress=True))
+        '''
+        # code to visualize segmentation
+        #  
+        max_label = labels.max()
+        print(f"point cloud has {max_label + 1} clusters")
+        colors = plt.get_cmap("tab20")(labels / (max_label if max_label > 0 else 1))
+        colors[labels < 0] = 0
+        pcd.colors = open3d.utility.Vector3dVector(colors[:, :3])
+        
+        open3d.visualization.draw(
+            [pcd, axis_aligned_bounding_box, oriented_bounding_box])
+        '''    
+        # 4) estimate normals of point cloud
+        pcd.estimate_normals()
+        pcd.normalize_normals()
+        pcd.orient_normals_consistent_tangent_plane(k=20)
+        #open3d.visualization.draw_geometries([pcd], point_show_normal=True)
+
+         # 4) Segment main plane of point cloud (Main face of object)
+        plane_model, inliers = pcd.segment_plane(distance_threshold=0.005,
+                                                ransac_n=4,
+                                                num_iterations=1000)
+
+        inlier_cloud = pcd.select_by_index(inliers)
+        #inlier_cloud.paint_uniform_color([1.0, 0, 0])
+
+        # Estimate once again the normals of the main face of the object to get better results
+        inlier_cloud.estimate_normals()
+        inlier_cloud.orient_normals_consistent_tangent_plane(k=20)
+        inlier_cloud.normalize_normals()
+
+        #Find average normal by averaging all normals on the face
+        average_normal = np.mean(np.asarray(inlier_cloud.normals),axis=0)
+
+        #Find orientation of youbot to be perfectly in front of main face of object
+        dy = -average_normal[1] / np.linalg.norm(average_normal[0:2])
+        dx = -average_normal[0] / np.linalg.norm(average_normal[0:2])
+        if dx >= 0 and dy >= 0:
+            angle = np.pi/2 + abs(math.atan(dy/dx))
+        if dx >= 0 and dy <= 0:
+            angle = abs(math.atan(dx/dy))
+        if dx <= 0 and dy >= 0:
+            angle = -(np.pi/2 + abs(math.atan(dy/dx)))
+        if dx <= 0 and dy <= 0:
+            angle = -abs(math.atan(dx/dy))
+
+        print("target orientation in radians", angle )
+
+        #find center of the main face of the object
+        face_center =  np.asarray(inlier_cloud.get_center())
+        print('center of face ',face_center)
+        return angle, face_center
+
+    else:
+        print("No objects were detected")
+        return None, None
 
 # Start the demo. 
 intial_pos_route = (0,0)
@@ -281,14 +432,13 @@ while True:
             #update map and refresh display every 5 ticks except at the begining where a lot of data is gathered
             house_map.update_contact_map(scanned_points,contacts)
             show = True
+            
 
-        
-        
         #if counter == 550:
             #forward_PID.plot()
             #rot_PID.plot()
         
-        #print(counter,end='\r')
+        #print(counter)
         counter +=1
         if fsm == 'detect_tables' or (counter % 250 == 0):
 
@@ -379,7 +529,6 @@ while True:
 
             currActionIndex = 0
 
-            house_map.update_contact_map(scanned_points,contacts) # to remove ? 
 
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
@@ -511,7 +660,8 @@ while True:
 
 
         elif fsm == 'circleAroundTable':
-            
+            if counter % 50 == 0:
+                target_orientation, target_clamp_pos = find_objects()
             forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
