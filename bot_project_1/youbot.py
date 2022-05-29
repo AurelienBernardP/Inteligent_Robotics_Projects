@@ -33,6 +33,8 @@ from scipy.spatial.transform import Rotation as R
 
 import open3d
 import cv2 as cv
+from shapely.geometry import LineString
+from shapely.geometry import Point
 
 from Scene_map_v3 import Scene_map
 from astar import getActions
@@ -230,7 +232,7 @@ def setArmJoints(targetJoint):
 
 
     
-def find_objects():
+def find_objects(table_center , orbit_d = 0.85):
 
     # Read data from the depth camera (Hokuyo)
     # Reading a 3D image costs a lot to VREP (it has to simulate the image). It also requires a lot of 
@@ -343,30 +345,68 @@ def find_objects():
 
         #Find average normal by averaging all normals on the face
         average_normal = np.mean(np.asarray(inlier_cloud.normals),axis=0)
-
+        
         #Find orientation of youbot to be perfectly in front of main face of object
         dy = -average_normal[1] / np.linalg.norm(average_normal[0:2])
         dx = -average_normal[0] / np.linalg.norm(average_normal[0:2])
-        if dx >= 0 and dy >= 0:
-            angle = np.pi/2 + abs(math.atan(dy/dx))
-        if dx >= 0 and dy <= 0:
-            angle = abs(math.atan(dx/dy))
-        if dx <= 0 and dy >= 0:
-            angle = -(np.pi/2 + abs(math.atan(dy/dx)))
-        if dx <= 0 and dy <= 0:
-            angle = -abs(math.atan(dx/dy))
+        angle_to_grasp = 0.0
 
-        print("target orientation in radians", angle )
+        if dx >= 0 and dy >= 0:
+            angle_to_grasp = np.pi/2 + abs(math.atan(dy/dx))
+        if dx >= 0 and dy <= 0:
+            angle_to_grasp = abs(math.atan(dx/dy))
+        if dx <= 0 and dy >= 0:
+            angle_to_grasp = -(np.pi/2 + abs(math.atan(dy/dx)))
+        if dx <= 0 and dy <= 0:
+            angle_to_grasp = -abs(math.atan(dx/dy))
+
+        print("target orientation in radians", angle_to_grasp )
 
         #find center of the main face of the object
         face_center =  np.asarray(inlier_cloud.get_center())
         print('center of face ',face_center)
-        status = 0
-        return status, angle, face_center
 
+        def line_and_circle_intersection(circle_center,radius,line_vector_start,line_vector_end):
+            
+            p = Point(circle_center[0],circle_center[1])
+            c = p.buffer(radius).boundary
+            l = LineString([line_vector_start, line_vector_end])
+            i = c.intersection(l)
+            print("intersection = ", i)
+            if i.is_empty :
+                return None
+            return (i.x, i.y)
+
+        face_center_absolute_pos = face_center[:2] + youbotPos[:2]
+        line_end = face_center[:2] + (orbit_d * average_normal[:2])
+        intersection = line_and_circle_intersection(table_center,orbit_d,face_center_absolute_pos,line_end)
+        if intersection == None:
+            #should never happen because object(line start) is within orbit and line is as long as orbit radius
+            print("several intersections should never happen")
+
+            return 1,None,None,None,None
+
+        print("intersecting points with orbit= ", intersection)
+
+
+        point_on_orbit = intersection
+
+        dy = table_center[0] - point_on_orbit[0]
+        dx = average_normal[0] - point_on_orbit[1]
+        angle_to_table = 0.
+        if dx >= 0 and dy >= 0:
+            angle_to_table = np.pi/2 + abs(math.atan(dy/dx))
+        if dx >= 0 and dy <= 0:
+            angle_to_table = abs(math.atan(dx/dy))
+        if dx <= 0 and dy >= 0:
+            angle_to_table = -(np.pi/2 + abs(math.atan(dy/dx)))
+        if dx <= 0 and dy <= 0:
+            angle_to_table = -abs(math.atan(dx/dy))
+
+        return 0,angle_to_table,point_on_orbit,angle_to_grasp, face_center
     else:
         print("No objects were detected")
-        return 1, None, None
+        return 1,None, None,None,None
 
 # Start the demo. 
 intial_pos_route = (0,0)
@@ -662,8 +702,6 @@ while True:
 
         elif fsm == 'scanTable':
 
-            # + If return None, need to continue !
-
             # Check if we are on the table 2 (no scaning).
             if gripperState == 0:
                 fsm = 'circleAroundTable'
@@ -674,10 +712,15 @@ while True:
 
             status = 1
             if counter % 25 == 0:
-                status, target_orientation, target_clamp_pos = find_objects()
-            
-            if status == 0: # quid if no more objects on table ? 
-                angleOfObject = np.pi # good angle directly ? reference ?
+                radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
+                target_table_center = (tableCenter[0],tableCenter[1])
+                status, target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
+
+            if  status == 0: # quid if no more objects on table ? 
+                print(target_angle_with_table)
+                print(target_position)
+                print(target_bot_orientation)
+                print(target_clamp_pos)
                 centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
                 rotateRightVel = 0
                 rightVel = 0
@@ -686,12 +729,11 @@ while True:
 
 
         elif fsm == 'circleAroundTable':
-            forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
             
             # Set the goal angle.
-            angle2 = angleOfObject
+            angle2 = target_angle_with_table
 
             # Get "table angle" from youbot angle.
             angle1 = youbotEuler[2]
@@ -726,10 +768,10 @@ while True:
             angle1 = youbotEuler[2]
 
             # Get angle to have back of the youbot in front of the object.
-            if target_orientation <= 0:
-                angle2 = np.pi + target_orientation
+            if target_bot_orientation <= 0:
+                angle2 = np.pi + target_bot_orientation
             else:
-                angle2 = target_orientation - np.pi
+                angle2 = target_bot_orientation - np.pi
 
             rotateRightVel, distanceToGoal = getRotationSpeed(angle1, angle2)
 
