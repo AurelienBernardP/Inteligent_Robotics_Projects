@@ -361,11 +361,12 @@ def find_objects():
         #find center of the main face of the object
         face_center =  np.asarray(inlier_cloud.get_center())
         print('center of face ',face_center)
-        return angle, face_center
+        status = 0
+        return status, angle, face_center
 
     else:
         print("No objects were detected")
-        return None, None
+        return 1, None, None
 
 # Start the demo. 
 intial_pos_route = (0,0)
@@ -488,8 +489,8 @@ while True:
         elif fsm == 'moveObject':
 
                 # test (to replace by point cloud processing)
-                angleOfObject = np.pi
-                centerOfObject = np.array([-0.02, 0.37, 0.26])
+                #angleOfObject = np.pi
+                #centerOfObject = np.array([-0.02, 0.37, 0.26])
                 
                 # Infinit loop (test)
                 print(tableCenter)
@@ -662,19 +663,29 @@ while True:
         elif fsm == 'scanTable':
 
             # + If return None, need to continue !
-       
-            angle, face_center = find_objects()
 
-            angleOfObject = angle
-            centerOfObject = face_center # need to be convert to 'armRef' + quid rotation around table ?
+            # Check if we are on the table 2 (no scaning).
+            if gripperState == 0:
+                fsm = 'circleAroundTable'
+                print('Switching to state: ', fsm)
 
-            fsm = 'circleAroundTable'
-            print('Switching to state: ', fsm)
+            rotateRightVel = 0.09
+            rightVel = -0.1
+
+            status = 1
+            if counter % 25 == 0:
+                status, target_orientation, target_clamp_pos = find_objects()
+            
+            if status == 0: # quid if no more objects on table ? 
+                angleOfObject = target_orientation # good angle directly ? reference ?
+                centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
+                rotateRightVel = 0
+                rightVel = 0
+                fsm = 'circleAroundTable'
+                print('Switching to state: ', fsm)
 
 
         elif fsm == 'circleAroundTable':
-            if counter % 50 == 0:
-                target_orientation, target_clamp_pos = find_objects()
             forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
@@ -750,6 +761,13 @@ while True:
 
             
         elif fsm == 'moveArm':
+            
+            if centerOfObject.size == 4:
+                T_ref_arm = get_transform(h["ref"], h["armRef"])
+                print(T_ref_arm)
+                print(centerOfObject)
+                centerOfObject =  np.matmul(T_ref_arm,centerOfObject)
+                centerOfObject = centerOfObject[0:3]
 
             # Send command to the robot arm.
             res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["armRef"], centerOfObject, vrep.simx_opmode_oneshot)
