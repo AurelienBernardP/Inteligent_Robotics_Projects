@@ -227,7 +227,7 @@ def setArmJoints(targetJoint):
     res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
 
     return joint_0, joint_1, joint_3
-    
+
 
     
 def find_objects():
@@ -655,8 +655,21 @@ while True:
             # Stop when the robot reached the goal position.
             if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.1:
                 forwBackVel = 0
-                fsm = 'circleAroundTable'
+                fsm = 'scanTable'
                 print('Switching to state: ', fsm)
+        
+
+        elif fsm == 'scanTable':
+
+            # + If return None, need to continue !
+       
+            angle, face_center = find_objects()
+
+            angleOfObject = angle
+            centerOfObject = face_center # need to be convert to 'armRef' + quid rotation around table ?
+
+            fsm = 'circleAroundTable'
+            print('Switching to state: ', fsm)
 
 
         elif fsm == 'circleAroundTable':
