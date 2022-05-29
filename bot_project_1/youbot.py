@@ -372,23 +372,24 @@ def find_objects(table_center , orbit_d = 0.85):
             c = p.buffer(radius).boundary
             l = LineString([line_vector_start, line_vector_end])
             i = c.intersection(l)
-            for intersection in i.geoms:
-                print (intersection.coords[0])
-
-            return i.geoms
+            print("intersection = ", i)
+            if i.is_empty :
+                return None
+            return (i.x, i.y)
 
         face_center_absolute_pos = face_center[:2] + youbotPos[:2]
-        line_end = face_center + (orbit_d * average_normal[:2])
-        intersections = line_and_circle_intersection(table_center,orbit_d,face_center_absolute_pos,line_end)
-        print("intersecting points with orbit= ", intersections)
-
-        if len(intersections) != 1:
+        line_end = face_center[:2] + (orbit_d * average_normal[:2])
+        intersection = line_and_circle_intersection(table_center,orbit_d,face_center_absolute_pos,line_end)
+        if intersection == None:
             #should never happen because object(line start) is within orbit and line is as long as orbit radius
             print("several intersections should never happen")
 
-            return None,None,None,None
+            return 1,None,None,None,None
 
-        point_on_orbit = (intersections[0].coords[0] , intersections[0].coords[1])
+        print("intersecting points with orbit= ", intersection)
+
+
+        point_on_orbit = intersection
 
         dy = table_center[0] - point_on_orbit[0]
         dx = average_normal[0] - point_on_orbit[1]
@@ -402,10 +403,10 @@ def find_objects(table_center , orbit_d = 0.85):
         if dx <= 0 and dy <= 0:
             angle_to_table = -abs(math.atan(dx/dy))
 
-        return angle_to_table,point_on_orbit,angle_to_grasp, face_center
+        return 0,angle_to_table,point_on_orbit,angle_to_grasp, face_center
     else:
         print("No objects were detected")
-        return None, None,None,None
+        return 1,None, None,None,None
 
 # Start the demo. 
 intial_pos_route = (0,0)
@@ -713,10 +714,12 @@ while True:
 
             status = 1
             if counter % 25 == 0:
-                status, target_orientation, target_clamp_pos = find_objects()
-            
-            if status == 0: # quid if no more objects on table ? 
-                angleOfObject = target_orientation # good angle directly ? reference ?
+                radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
+                target_table_center = (tableCenter[0],tableCenter[1])
+                status, target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
+                status = radius_of_orbit
+            if  status == 0: # quid if no more objects on table ? 
+                angleOfObject = target_bot_orientation # good angle directly ? reference ?
                 centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
                 rotateRightVel = 0
                 rightVel = 0
@@ -728,7 +731,7 @@ while True:
             if counter % 50 == 0:
                 radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
                 target_table_center = (tableCenter[0],tableCenter[1])
-                target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
+                status,target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
             forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
