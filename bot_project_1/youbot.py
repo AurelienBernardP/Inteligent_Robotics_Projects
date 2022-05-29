@@ -33,6 +33,8 @@ from scipy.spatial.transform import Rotation as R
 
 import open3d
 import cv2 as cv
+from shapely.geometry import LineString
+from shapely.geometry import Point
 
 from Scene_map_v3 import Scene_map
 from astar import getActions
@@ -210,7 +212,7 @@ def getRotationSpeed(angle1, angle2):
     return rotateRightVel, distanceToGoal
 
     
-def find_objects():
+def find_objects(table_center , orbit_d = 0.85):
 
     # Read data from the depth camera (Hokuyo)
     # Reading a 3D image costs a lot to VREP (it has to simulate the image). It also requires a lot of 
@@ -323,29 +325,67 @@ def find_objects():
 
         #Find average normal by averaging all normals on the face
         average_normal = np.mean(np.asarray(inlier_cloud.normals),axis=0)
-
+        
         #Find orientation of youbot to be perfectly in front of main face of object
         dy = -average_normal[1] / np.linalg.norm(average_normal[0:2])
         dx = -average_normal[0] / np.linalg.norm(average_normal[0:2])
-        if dx >= 0 and dy >= 0:
-            angle = np.pi/2 + abs(math.atan(dy/dx))
-        if dx >= 0 and dy <= 0:
-            angle = abs(math.atan(dx/dy))
-        if dx <= 0 and dy >= 0:
-            angle = -(np.pi/2 + abs(math.atan(dy/dx)))
-        if dx <= 0 and dy <= 0:
-            angle = -abs(math.atan(dx/dy))
+        angle_to_grasp = 0.0
 
-        print("target orientation in radians", angle )
+        if dx >= 0 and dy >= 0:
+            angle_to_grasp = np.pi/2 + abs(math.atan(dy/dx))
+        if dx >= 0 and dy <= 0:
+            angle_to_grasp = abs(math.atan(dx/dy))
+        if dx <= 0 and dy >= 0:
+            angle_to_grasp = -(np.pi/2 + abs(math.atan(dy/dx)))
+        if dx <= 0 and dy <= 0:
+            angle_to_grasp = -abs(math.atan(dx/dy))
+
+        print("target orientation in radians", angle_to_grasp )
 
         #find center of the main face of the object
         face_center =  np.asarray(inlier_cloud.get_center())
         print('center of face ',face_center)
-        return angle, face_center
 
+        def line_and_circle_intersection(circle_center,radius,line_vector_start,line_vector_end):
+            
+            p = Point(circle_center[0],circle_center[1])
+            c = p.buffer(radius).boundary
+            l = LineString([line_vector_start, line_vector_end])
+            i = c.intersection(l)
+            for intersection in i.geoms:
+                print (intersection.coords[0])
+
+            return i.geoms
+
+        face_center_absolute_pos = face_center[:2] + youbotPos[:2]
+        line_end = face_center + (orbit_d * average_normal[:2])
+        intersections = line_and_circle_intersection(table_center,orbit_d,face_center_absolute_pos,line_end)
+        print("intersecting points with orbit= ", intersections)
+
+        if len(intersections) != 1:
+            #should never happen because object(line start) is within orbit and line is as long as orbit radius
+            print("several intersections should never happen")
+
+            return None,None,None,None
+
+        point_on_orbit = (intersections[0].coords[0] , intersections[0].coords[1])
+
+        dy = table_center[0] - point_on_orbit[0]
+        dx = average_normal[0] - point_on_orbit[1]
+        angle_to_table = 0.
+        if dx >= 0 and dy >= 0:
+            angle_to_table = np.pi/2 + abs(math.atan(dy/dx))
+        if dx >= 0 and dy <= 0:
+            angle_to_table = abs(math.atan(dx/dy))
+        if dx <= 0 and dy >= 0:
+            angle_to_table = -(np.pi/2 + abs(math.atan(dy/dx)))
+        if dx <= 0 and dy <= 0:
+            angle_to_table = -abs(math.atan(dx/dy))
+
+        return angle_to_table,point_on_orbit,angle_to_grasp, face_center
     else:
         print("No objects were detected")
-        return None, None
+        return None, None,None,None
 
 # Start the demo. 
 intial_pos_route = (0,0)
@@ -641,7 +681,7 @@ while True:
 
         elif fsm == 'circleAroundTable':
             if counter % 50 == 0:
-                target_orientation, target_clamp_pos = find_objects()
+                target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects() # TODO: define orbit center and orbit radius
             forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
