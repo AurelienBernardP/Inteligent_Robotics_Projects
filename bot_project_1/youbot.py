@@ -726,7 +726,9 @@ while True:
 
         elif fsm == 'circleAroundTable':
             if counter % 50 == 0:
-                target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects() # TODO: define orbit center and orbit radius
+                radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
+                target_table_center = (tableCenter[0],tableCenter[1])
+                target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
             forwBackVel = 0
             
             # We need to be at distance 0.850 m from table center and face it !
