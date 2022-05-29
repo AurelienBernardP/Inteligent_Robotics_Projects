@@ -173,6 +173,8 @@ tableCenter = [0,0]
 # To track position at the beginning of a move.
 youbotFirstPos = youbotPos
 
+# Put the fct elsewhere !
+
 def get_speeds(map_rep,real_bot_position,target_pos_mat,current_orientation,target_orientation):
     
     goal_coordinates = map_rep.get_cell_center_coordinates(target_pos_mat[1],target_pos_mat[0])
@@ -210,6 +212,24 @@ def getRotationSpeed(angle1, angle2):
     rotateRightVel = rot_PID.control(0,distanceToGoal)
 
     return rotateRightVel, distanceToGoal
+
+
+def setArmJoints(targetJoint):
+
+    # Joint 0.
+    res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][0], targetJoint[0], vrep.simx_opmode_oneshot)            
+    res, joint_0 = vrep.simxGetJointPosition(clientID, h["armJoints"][0], vrep.simx_opmode_buffer)
+
+    # Joint 1.   
+    res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][1], targetJoint[1], vrep.simx_opmode_oneshot)            
+    res, joint_1 = vrep.simxGetJointPosition(clientID, h["armJoints"][1], vrep.simx_opmode_buffer)
+
+    # Joint 3.
+    res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][3], targetJoint[3], vrep.simx_opmode_oneshot)            
+    res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
+
+    return joint_0, joint_1, joint_3
+
 
     
 def find_objects(table_center , orbit_d = 0.85):
@@ -508,8 +528,8 @@ while True:
         elif fsm == 'moveObject':
 
                 # test (to replace by point cloud processing)
-                angleOfObject = np.pi
-                centerOfObject = np.array([-0.02, 0.37, 0.26])
+                #angleOfObject = np.pi
+                #centerOfObject = np.array([-0.02, 0.37, 0.26])
                 
                 # Infinit loop (test)
                 print(tableCenter)
@@ -675,6 +695,31 @@ while True:
             # Stop when the robot reached the goal position.
             if abs(distanceToGoal) < .01 and abs(forwBackVel) < 0.1:
                 forwBackVel = 0
+                fsm = 'scanTable'
+                print('Switching to state: ', fsm)
+        
+
+        elif fsm == 'scanTable':
+
+            # + If return None, need to continue !
+
+            # Check if we are on the table 2 (no scaning).
+            if gripperState == 0:
+                fsm = 'circleAroundTable'
+                print('Switching to state: ', fsm)
+
+            rotateRightVel = 0.09
+            rightVel = -0.1
+
+            status = 1
+            if counter % 25 == 0:
+                status, target_orientation, target_clamp_pos = find_objects()
+            
+            if status == 0: # quid if no more objects on table ? 
+                angleOfObject = target_orientation # good angle directly ? reference ?
+                centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
+                rotateRightVel = 0
+                rightVel = 0
                 fsm = 'circleAroundTable'
                 print('Switching to state: ', fsm)
 
@@ -738,21 +783,13 @@ while True:
                 print('Switching to state: ', fsm)
 
         
-        # Need to be dynamic
         elif fsm == 'deployArm':
 
             targetJoint = [np.pi, -np.pi/4, 0., 0.]
+            
+            # Rotate the arm.
+            joint_0, joint_1, joint_3 = setArmJoints(targetJoint)
 
-            # Rotate the arm
-            # Joint 0        
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][0], targetJoint[0], vrep.simx_opmode_oneshot)            
-            res, joint_0 = vrep.simxGetJointPosition(clientID, h["armJoints"][0], vrep.simx_opmode_buffer)
-            # Joint 1        
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][1], targetJoint[1], vrep.simx_opmode_oneshot)            
-            res, joint_1 = vrep.simxGetJointPosition(clientID, h["armJoints"][1], vrep.simx_opmode_buffer)
-            # Joint 3
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][3], targetJoint[3], vrep.simx_opmode_oneshot)            
-            res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
             # Stop when the robot is at an angle close to target.
             cond0 = abs(angdiff(joint_0, targetJoint[0])) < .001
             cond1 = abs(angdiff(joint_1, targetJoint[1])) < .001
@@ -765,22 +802,23 @@ while True:
 
             
         elif fsm == 'moveArm':
+            
+            if centerOfObject.size == 4:
+                T_ref_arm = get_transform(h["ref"], h["armRef"])
+                print(T_ref_arm)
+                print(centerOfObject)
+                centerOfObject =  np.matmul(T_ref_arm,centerOfObject)
+                centerOfObject = centerOfObject[0:3]
 
-            # Transform for the arm orientation
-            rot1 = R.from_quat([0., np.sin(-3/8*np.pi), 0., np.cos(-3/8*np.pi)])
-            rot2 = R.from_quat([np.sin(-np.pi/4), 0., 0., np.cos(-np.pi/4)])
-            quats = (rot1*rot2).as_quat()
-            # Send command to the robot arm
-            res = vrep.simxSetObjectQuaternion(clientID, h["otarget"], h["r22"], quats, vrep.simx_opmode_oneshot)
+            # Send command to the robot arm.
             res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["armRef"], centerOfObject, vrep.simx_opmode_oneshot)
             vrchk(vrep, res, True)
+
             # Get the gripper position and check whether it is at destination (the original position).
             [res, tpos] = vrep.simxGetObjectPosition(clientID, h["ptip"], h["armRef"], vrep.simx_opmode_buffer)
             vrchk(vrep, res, True)
-            # Get the gripper orientation and check whether it is at destination (the original position).
-            [res, targetori] = vrep.simxGetObjectOrientation(clientID, h["otarget"], h["r22"], vrep.simx_opmode_buffer)
-            [res, tori] = vrep.simxGetObjectOrientation(clientID, h["otip"], h["r22"], vrep.simx_opmode_buffer)
-            # Check only position but orientation can be added
+
+            # Check only position but orientation can be added.
             cond_pos = np.linalg.norm(tpos - centerOfObject) < .005
             print(np.linalg.norm(tpos - centerOfObject))
 
@@ -798,26 +836,25 @@ while True:
                 close = 0
             else:
                 close = 1
-            
             res = vrep.simxSetIntegerSignal(clientID, 'gripper_open', close, vrep.simx_opmode_oneshot_wait);
             #vrchk(vrep, res)
             
             if time.time()-time_to_close > 3.:
                 gripperState = close
                 fsm = 'liftUp'
-                ######### BE CAREFUL #############
-                # Don't forget to send a signal to move the robot arm in the forward mode !
                 res = vrep.simxSetIntegerSignal(clientID, 'km_mode', 0, vrep.simx_opmode_oneshot_wait)
                 #vrchk(vrep, res, True)
                 print('Switching to state: ', fsm)
 
                 
         elif fsm == "liftUp":
+
             # Joint 3
             target_joint_3 = -np.pi/2
             joint_index = 3
             res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][joint_index], target_joint_3, vrep.simx_opmode_oneshot)            
             res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][joint_index], vrep.simx_opmode_buffer)
+
             # Condition
             cond = abs(angdiff(joint_3, target_joint_3)) < .001
             if cond:
@@ -830,16 +867,9 @@ while True:
 
             targetJoint = [0, 0, 0., 0]
             
-            # Rotate the arm
-            # Joint 0        
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][0], targetJoint[0], vrep.simx_opmode_oneshot)            
-            res, joint_0 = vrep.simxGetJointPosition(clientID, h["armJoints"][0], vrep.simx_opmode_buffer)
-            # Joint 1        
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][1], targetJoint[1], vrep.simx_opmode_oneshot)            
-            res, joint_1 = vrep.simxGetJointPosition(clientID, h["armJoints"][1], vrep.simx_opmode_buffer)
-            # Joint 3
-            res = vrep.simxSetJointTargetPosition(clientID, h["armJoints"][3], targetJoint[3], vrep.simx_opmode_oneshot)            
-            res, joint_3 = vrep.simxGetJointPosition(clientID, h["armJoints"][3], vrep.simx_opmode_buffer)
+            # Rotate the arm.
+            joint_0, joint_1, joint_3 = setArmJoints(targetJoint)
+
             # Stop when the robot is at an angle close to target.
             cond0 = abs(angdiff(joint_0, targetJoint[0])) < .001
             cond1 = abs(angdiff(joint_1, targetJoint[1])) < .001
