@@ -597,7 +597,7 @@ while True:
             
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
-            isMapFullyExplored = True #to remove
+            #isMapFullyExplored = True #to remove
             
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
