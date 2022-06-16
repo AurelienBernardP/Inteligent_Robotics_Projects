@@ -152,6 +152,8 @@ h = youbot_drive(vrep, h, forwBackVel, rightVel, rotateRightVel)
 # Get the gripper orientation
 [res, tori] = vrep.simxGetObjectOrientation(clientID, h["otip"], h["r22"], vrep.simx_opmode_oneshot_wait)
 
+#res, centerOfObject = vrep.simxGetObjectPosition(clientID, h['r22'], h['ref'], vrep.simx_opmode_buffer)
+
 # Send a Trigger to the simulator: this will run a time step for the physic engine
 # because of the synchronous mode. Run several iterations to stabilize the simulation.
 for i in range(int(1./timestep)):
@@ -162,7 +164,7 @@ for i in range(int(1./timestep)):
 house_map = Scene_map(75,75,beacons_world_pos[:,:2])
 
 # Actions that will come from A* algo.
-actions = [('East', 0.001)]
+actions = [('South', 0.001)]
 currActionIndex = 0
 goalCell = (-1,-1)
 
@@ -280,7 +282,7 @@ def find_objects(table_center , orbit_d = 0.85):
     to_remove = []
     for i in range(np.shape(pts)[0]):
         
-            if pts[i,3] > 1.5:
+            if pts[i,3] > 0.9:
                 to_remove.append(i)
     pts = np.delete(pts,to_remove,axis = 0)
 
@@ -421,6 +423,7 @@ target_table = np.zeros(2)
 target_table = [-1, -6] # to remove
 youbotFirstEuler = -1
 gripperState = 1
+isObjectDropped = False
 
 while True:
     try:
@@ -515,6 +518,10 @@ while True:
         # Apply the state machine.
         if fsm == 'main':
 
+            if isObjectDropped == True:
+                fsm = 'finished'
+                print('Switching to state: ', fsm)
+
             # Explore the whole map.
             if fsm_step == 1:
                 fsm = 'exploring'
@@ -569,7 +576,6 @@ while True:
         elif fsm == 'exploring':
 
             currActionIndex = 0
-
 
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
@@ -698,8 +704,9 @@ while True:
                 forwBackVel = 0
                 fsm = 'scanTable'
                 print('Switching to state: ', fsm)
-        
 
+        
+        # Not implemented ! we mock it with true data from the map.
         elif fsm == 'scanTable':
 
             # Check if we are on the table 2 (no scaning).
@@ -709,19 +716,32 @@ while True:
 
             rotateRightVel = 0.09
             rightVel = -0.1
-
+            
+            
             status = 1
             if counter % 25 == 0:
                 radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
                 target_table_center = (tableCenter[0],tableCenter[1])
                 status, target_angle_with_table,target_position,target_bot_orientation, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
+                #centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1])
+            
 
             if  status == 0: # quid if no more objects on table ? 
+                # Mock sensor
+                #res, centerOfObject = vrep.simxGetObjectPosition(clientID, h['r22'], h['ref'], vrep.simx_opmode_streaming) # Cheat function !
+                #centerOfObject = np.array([centerOfObject[0], centerOfObject[1], centerOfObject[2], 1])
+                
+                print("--------")
                 print(target_angle_with_table)
-                print(target_position)
                 print(target_bot_orientation)
-                print(target_clamp_pos)
-                centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1]) # how to transform ?
+                #print(centerOfObject)
+                print("--------")
+
+                # Mock sensor
+                centerOfObject = np.array([0.032, 0.53, 0.15, 1])
+                target_angle_with_table = np.pi
+                target_bot_orientation = 0
+
                 rotateRightVel = 0
                 rightVel = 0
                 fsm = 'circleAroundTable'
@@ -747,19 +767,40 @@ while True:
             
             # Rotate left or right (choose the best of the two move).
             if (angleRight <= angleLeft):
-                rotateRightVel = -0.09
-                rightVel = 0.1
+                distanceToGoal = angleRight
+                rotateRightVel = -0.09 * 0.5
+                rightVel = 0.1 * 0.5
             else:
-                rotateRightVel = 0.09
-                rightVel = -0.1
+                distanceToGoal = angleLeft
+                rotateRightVel = 0.09 * 0.5
+                rightVel = -0.1 * 0.5
+            
+            print(distanceToGoal)
             
             # Stop when the robot reached the goal angle.
-            distanceToGoal = abs(angle1 - angle2)
             if distanceToGoal < .01:
                 rotateRightVel = 0
                 rightVel = 0
-                fsm = 'rotateToObjectFront'
-                print('Switching to state: ', fsm)
+                
+                if gripperState == 1:
+                    fsm = 'rescan'
+                    print('Switching to state: ', fsm)
+                else:
+                    fsm = 'rotateToObjectFront'
+                    print('Switching to state: ', fsm)
+
+        
+        elif fsm == 'rescan':
+
+            # Take a new shot of the object.
+            radius_of_orbit = math.sqrt(abs(youbotPos[0] - tableCenter[0])**2 + abs(youbotPos[1] - tableCenter[1])**2)
+            target_table_center = (tableCenter[0],tableCenter[1])
+            status, n,n,n, target_clamp_pos = find_objects(target_table_center,radius_of_orbit) 
+            if status == 0:
+                centerOfObject = np.array([-target_clamp_pos[0], -target_clamp_pos[1], target_clamp_pos[2], 1])
+            
+            fsm = 'rotateToObjectFront'
+            print('Switching to state: ', fsm)
             
 
         elif fsm == 'rotateToObjectFront':
@@ -808,9 +849,17 @@ while True:
                 print(centerOfObject)
                 centerOfObject =  np.matmul(T_ref_arm,centerOfObject)
                 centerOfObject = centerOfObject[0:3]
+                centerOfObject[1] += 0.035
 
             # Send command to the robot arm.
             res = vrep.simxSetObjectPosition(clientID, h["ptarget"], h["armRef"], centerOfObject, vrep.simx_opmode_oneshot)
+
+            # Transform for the arm orientation
+            rot1 = R.from_quat([0., np.sin(-3/8*np.pi), 0., np.cos(-3/8*np.pi)])
+            rot2 = R.from_quat([np.sin(-np.pi/4), 0., 0., np.cos(-np.pi/4)])
+            quats = (rot1*rot2).as_quat()
+
+            res = vrep.simxSetObjectQuaternion(clientID, h["otarget"], h["r22"], quats, vrep.simx_opmode_oneshot)
             vrchk(vrep, res, True)
 
             # Get the gripper position and check whether it is at destination (the original position).
@@ -863,6 +912,9 @@ while True:
         
        # Need to be dynamic
         elif fsm == 'storeArm':
+
+            if gripperState == 1:
+                isObjectDropped = True
 
             targetJoint = [0, 0, 0., 0]
             

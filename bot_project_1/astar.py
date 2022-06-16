@@ -141,7 +141,7 @@ def __costFunction__(state, action, path, houseMap):
     
     # Add cost for diagonal move.
     if isMoveDiagonal(action):
-        cost += 5 - 1 # better math.sqrt(2) ?
+        cost += 4 - 1 # better math.sqrt(2) ?
     
     # Add cost for rotation.
     if len(path) != 0 and action != path[len(path)-1]:
