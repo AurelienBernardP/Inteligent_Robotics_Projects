@@ -317,6 +317,15 @@ class Scene_map :
         
         return result.x
 
+    def is_pos_obstacle(self,real_x,real_y):
+        x,y = self.map_position_to_mat_index(real_x,real_y)
+        if (x,y) in self.obstacle_cells :
+            return True
+
+        return False
+
+            
+
 def manhattanDistance(state_1, state_2):
     return abs(state_1[0] - state_2[0]) + abs(state_1[1] - state_2[1])
 
