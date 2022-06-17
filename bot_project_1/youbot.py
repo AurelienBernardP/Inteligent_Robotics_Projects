@@ -416,9 +416,7 @@ counter = 0
 show = False
 forward_PID = PID_controller(timestep,3,0.8,0,True)
 rot_PID = PID_controller(timestep,3.05,0.8,0,True)
-tables = np.zeros((3,3))
-known_table1 = np.asarray([-3,-6])
-known_table2 = np.asarray([-1,-6])
+tables = []
 target_table = np.zeros(2)
 target_table = [-1, -6] # to remove
 youbotFirstEuler = -1
@@ -464,11 +462,11 @@ while True:
 
         if show == True:
             house_map.pygame_screen_refresh(screen,intial_pos_route,actions,beacon_dist)
-            for i in range(np.shape(tables)[0]):
+            for i in range(len(tables)):
                 x_screen_size, y_screen_size = screen.get_size()
-                x = (tables[i,0] + (15 / 2)) * (x_screen_size/15)
-                y = y_screen_size - ((tables[i,1] + (15 / 2)) * (y_screen_size/15))
-                radius = tables[i,2] * (x_screen_size/15)
+                x = (tables[i][0] + (15 / 2)) * (x_screen_size/15)
+                y = y_screen_size - ((tables[i][1] + (15 / 2)) * (y_screen_size/15))
+                radius = tables[i][2] * (x_screen_size/15)
                 pygame.draw.circle(screen, (255, 0, 0), (x,y), radius)
             pygame.display.flip()        
             show = False
@@ -496,21 +494,27 @@ while True:
                             minRadius=8, maxRadius=9)
             if circles is not None:
                 circles = np.uint16(np.around(circles))
-
+                tables = []
                 for i,pt in enumerate(circles[0, :]):
                     a, b, r = pt[0], pt[1], pt[2]
-                    tables[i,0] = (a - (0.5*300)) * (15/300)
-                    tables[i,1] = (b - (0.5*300)) * (15/300)
-                    tables[i,2] = r * (15/300) 
+                    a = (a - (0.5*300)) * (15/300)
+                    b = (b - (0.5*300)) * (15/300)
+                    r = r * (15/300)
+                    tables.append(np.asarray([a,b,r]))
+                    threshold_dist = 2.5
 
-                    d1 = np.linalg.norm(known_table1.T - tables[i,:2])
-                    d2 = np.linalg.norm(known_table2.T - tables[i,:2])
+                for i in range(len(tables)):
+                    
+                    test_table_1 = tables[i]
 
-                    if np.linalg.norm(known_table1.T - tables[i,:2]) > 0.8 and np.linalg.norm(known_table2.T - tables[i,:2]) > 0.8 :
-                        print('found target table')
-                        target_table[0] = tables[i,0]
-                        target_table[1] = tables[i,1]
-                    print(target_table)
+                    for j in range(len(tables)):
+                        test_table_2 = tables[j]
+
+                        if np.linalg.norm(test_table_1[:2].T - test_table_2[:2]) > 2.5:
+                            print('found target table')
+                            target_table[0] = tables[i][0]
+                            target_table[1] = tables[i][1]
+                        print(target_table)
             else :
                 print("no tables detected")
 
@@ -597,7 +601,7 @@ while True:
             
             # Check if the map is fully explored.
             isMapFullyExplored = house_map.frontier_cells_list == []
-            isMapFullyExplored = True #to remove
+            #isMapFullyExplored = True #to remove
             
             # Set actions to take.
             actions = getActions(house_map, cellNextToGoal)
